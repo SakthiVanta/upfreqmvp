@@ -4,7 +4,11 @@
 // files, which no fixed regex pass can reliably follow — and finally
 // reports a structured robot profile via the `submit_analysis` tool.
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
+// Lite tier: materially cheaper per token than gemini-2.5-flash while still
+// supporting function-calling tool-use, at some cost to reasoning depth on
+// gnarlier multi-hop Xacro/YAML chains. Swap back to 'gemini-2.5-flash' (or
+// a future non-lite model) if accuracy on complex repos becomes a problem.
+const GEMINI_MODEL = 'gemini-3.5-flash-lite';
 // Real repos with heavily YAML-templated chassis/sensor properties (e.g.
 // Andino's base/wheel/motor/lidar_base/battery_base/sensors/hardware.yaml —
 // 7+ separate config files behind one URDF) can legitimately need a dozen-
@@ -188,35 +192,63 @@ interface GeminiContent {
   parts: GeminiPart[];
 }
 
-async function callGemini(apiKey: string, contents: GeminiContent[], forceSubmit: boolean) {
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-        contents,
-        tools: TOOLS,
-        toolConfig: forceSubmit
-          ? { functionCallingConfig: { mode: 'ANY', allowedFunctionNames: [SUBMIT_TOOL_NAME] } }
-          : { functionCallingConfig: { mode: 'AUTO' } },
-        generationConfig: { temperature: 0.15, maxOutputTokens: 8192 },
-      }),
-    }
-  );
+const RATE_LIMIT_RETRY_DELAYS_MS = [15_000, 30_000, 45_000];
 
-  if (!res.ok) {
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// The agent loop can fire up to MAX_TOOL_ITERATIONS sequential calls for a
+// single audit — comfortably enough to blow through a free-tier per-minute
+// quota on any real repo (even Andino, a small one, needs a dozen-plus
+// read_file calls). A 429 here is almost always transient (the same key
+// recovers within a minute), so retry with backoff before giving up and
+// falling back to the regex parser — a temporary rate limit shouldn't
+// silently downgrade every audit to the less accurate path.
+async function callGemini(
+  apiKey: string,
+  contents: GeminiContent[],
+  forceSubmit: boolean,
+  onEvent?: (log: string) => void
+) {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+          contents,
+          tools: TOOLS,
+          toolConfig: forceSubmit
+            ? { functionCallingConfig: { mode: 'ANY', allowedFunctionNames: [SUBMIT_TOOL_NAME] } }
+            : { functionCallingConfig: { mode: 'AUTO' } },
+          generationConfig: { temperature: 0.15, maxOutputTokens: 8192 },
+        }),
+      }
+    );
+
+    if (res.ok) {
+      const data = await res.json();
+      const candidate = data.candidates?.[0];
+      if (!candidate) {
+        throw new Error(`Gemini API returned no candidates: ${JSON.stringify(data).slice(0, 300)}`);
+      }
+      return candidate.content as GeminiContent;
+    }
+
     const body = await res.text().catch(() => '');
+
+    if (res.status === 429 && attempt < RATE_LIMIT_RETRY_DELAYS_MS.length) {
+      const delayMs = RATE_LIMIT_RETRY_DELAYS_MS[attempt];
+      onEvent?.(`Rate limited by the Gemini API — waiting ${delayMs / 1000}s before retrying (attempt ${attempt + 1}/${RATE_LIMIT_RETRY_DELAYS_MS.length})...`);
+      await sleep(delayMs);
+      continue;
+    }
+
     throw new Error(`Gemini API error ${res.status}: ${body.slice(0, 300)}`);
   }
-
-  const data = await res.json();
-  const candidate = data.candidates?.[0];
-  if (!candidate) {
-    throw new Error(`Gemini API returned no candidates: ${JSON.stringify(data).slice(0, 300)}`);
-  }
-  return candidate.content as GeminiContent;
 }
 
 type ResolveResult = { path: string } | { ambiguous: string[] } | null;
@@ -276,7 +308,7 @@ export async function runAgenticAnalysis(
 
   for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
     const forceSubmit = iteration === MAX_TOOL_ITERATIONS - 1;
-    const modelTurn = await callGemini(apiKey, contents, forceSubmit);
+    const modelTurn = await callGemini(apiKey, contents, forceSubmit, onEvent);
     contents.push(modelTurn);
 
     const functionCalls = modelTurn.parts.filter(p => p.functionCall).map(p => p.functionCall!);
