@@ -43,12 +43,6 @@ export default function LoginPage() {
           <h1 className="text-xl font-display font-extrabold text-sand-50 tracking-tight">
             {mode === 'signin' ? 'Sign In to UpFreq' : 'Create UpFreq Account'}
           </h1>
-          <p className="text-xs text-sand-500">
-            {mode === 'signin'
-              ? 'Access your agentic workspace & ROS 2 parameter engine'
-              : 'Register your robotics team to audit GitHub packages & ROS 2 URDFs'
-            }
-          </p>
         </div>
 
         {isAuthenticated ? (
@@ -125,7 +119,7 @@ export default function LoginPage() {
               <div>
                 <label className="text-sand-300 font-bold mb-1 flex items-center gap-1.5">
                   <Mail className="h-3.5 w-3.5 text-emerald-primary" />
-                  Work Email Address:
+                  Email Address:
                 </label>
                 <input
                   type="email"
