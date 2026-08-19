@@ -16,7 +16,7 @@ function FeatureRow({ feature, indent }: { feature: AutonomyFeatureCheck; indent
         <span className={`text-xs font-bold ${feature.present ? 'text-sand-50' : 'text-sand-500'}`}>
           {feature.label}
         </span>
-        <p className="text-[11px] text-sand-500 font-mono mt-0.5 leading-snug">{feature.evidence}</p>
+        <p className="text-[11px] text-sand-500 mt-0.5 leading-snug">{feature.evidence}</p>
       </div>
     </div>
   );
@@ -30,7 +30,7 @@ export function CodebaseReview({ robot }: { robot: RobotProfile }) {
   const codebaseReview = robot.codebaseReview || [];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
       <div className="minimal-card p-5 space-y-3">
         <div className="flex items-center gap-2 text-xs font-bold text-sand-100 uppercase tracking-wider">
@@ -40,7 +40,7 @@ export function CodebaseReview({ robot }: { robot: RobotProfile }) {
         {robotVariants.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {robotVariants.map((v, idx) => (
-              <span key={idx} className="px-3 py-1.5 rounded-lg bg-emerald-light text-emerald-text border border-emerald-border text-xs font-bold">
+              <span key={idx} className="px-3 py-1.5 rounded-lg bg-emerald-light text-emerald-text border border-emerald-border text-xs font-bold font-mono">
                 {v}
               </span>
             ))}

@@ -60,12 +60,12 @@ export function RobotDetailExplorer({
               {robot.name} — System Architecture & Autonomy Stack Explorer
             </h2>
           </div>
-          <p className="text-xs text-sand-500 font-mono mt-1">
-            Repository: <a href={robot.repoUrl} target="_blank" rel="noreferrer" className="text-emerald-primary hover:underline font-bold">{robot.repoUrl}</a> ({robot.rosVersion})
+          <p className="text-xs text-sand-500 mt-1">
+            Repository: <a href={robot.repoUrl} target="_blank" rel="noreferrer" className="text-emerald-primary hover:underline font-bold font-mono">{robot.repoUrl}</a> ({robot.rosVersion})
           </p>
         </div>
 
-        <div className="flex items-center gap-2 font-mono text-xs">
+        <div className="flex items-center gap-2 text-xs">
           {robot.usedAgenticAnalysis ? (
             <span className="px-3 py-1 rounded bg-emerald-light border border-emerald-border font-bold text-emerald-text flex items-center gap-1.5" title="A Gemini agent read real files from this repo and reasoned about the results">
               <Cpu className="h-3.5 w-3.5" />
@@ -95,7 +95,7 @@ export function RobotDetailExplorer({
       </div>
 
       {/* Explorer Tabs Bar */}
-      <div className="border-b border-sand-800 bg-sand-950 px-4 py-2.5 flex flex-wrap items-center gap-2 font-mono text-xs overflow-x-auto">
+      <div className="border-b border-sand-800 bg-sand-950 px-4 py-2.5 flex flex-wrap items-center gap-2 text-xs overflow-x-auto">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
@@ -117,7 +117,7 @@ export function RobotDetailExplorer({
         <div className="p-6 space-y-8 font-sans">
 
           {/* Executive Pipeline Banner */}
-          <div className="bg-sand-950 text-sand-100 p-6 rounded-2xl border border-sand-800 space-y-3 font-mono">
+          <div className="bg-sand-950 text-sand-100 p-6 rounded-2xl border border-sand-800 space-y-3">
             <div className="flex items-center justify-between border-b border-sand-800 pb-3">
               <div className="flex items-center gap-2 text-emerald-primary text-xs font-bold uppercase tracking-wider">
                 <Workflow className="h-4 w-4" />
@@ -137,10 +137,10 @@ export function RobotDetailExplorer({
           {robot.dataFlowPipeline.nodes.length > 0 ? (
             <div className="space-y-2">
               <PipelineFlowDiagram nodes={robot.dataFlowPipeline.nodes} edges={robot.dataFlowPipeline.edges} />
-              <p className="text-[11px] text-sand-600 font-mono">Drag nodes to rearrange · scroll to zoom · each edge is a real ROS topic connection, not a stage grouping.</p>
+              <p className="text-[11px] text-sand-600">Drag nodes to rearrange · scroll to zoom · each edge is a real ROS topic connection, not a stage grouping.</p>
             </div>
           ) : (
-            <div className="p-8 rounded-2xl border border-dashed border-sand-800 text-center text-sand-500 font-mono text-xs flex flex-col items-center gap-2">
+            <div className="p-8 rounded-2xl border border-dashed border-sand-800 text-center text-sand-500 text-xs flex flex-col items-center gap-2">
               <AlertTriangle className="h-6 w-6 text-amber-500" />
               No data-flow could be constructed — no sensors or autonomy modules were detected with codebase evidence.
             </div>
@@ -148,7 +148,7 @@ export function RobotDetailExplorer({
 
           {/* Sensor-to-Module Data Flow Mapping Matrix */}
           <div className="space-y-4">
-            <h3 className="text-sm font-bold text-sand-50 font-mono flex items-center gap-2 uppercase tracking-wider">
+            <h3 className="text-sm font-bold text-sand-50 flex items-center gap-2 uppercase tracking-wider">
               <Network className="h-4 w-4 text-emerald-primary" />
               Sensor Data Processing & Module Consumer Mapping
             </h3>
@@ -199,12 +199,12 @@ export function RobotDetailExplorer({
               <Cpu className="h-5 w-5 text-emerald-primary" />
               Final Autonomy Module Classification & Codebase Evidence
             </h3>
-            <p className="text-xs text-sand-500 font-mono">
+            <p className="text-xs text-sand-500">
               Classifies implemented, configured, or missing autonomy subsystems based on real package dependencies and ROS 2 launch/YAML manifests found in this repository.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
             {robot.autonomyModules?.map((mod, idx) => {
               const dotColor = mod.status === 'Implemented in Codebase' ? 'bg-emerald-500' : mod.status === 'Configured via Launch/YAML' ? 'bg-amber-500' : 'bg-rose-500';
               return (
@@ -226,8 +226,8 @@ export function RobotDetailExplorer({
                   </div>
 
                   <div className="space-y-1.5 text-sand-400 text-[11px]">
-                    <div><span className="text-sand-600 font-bold">Node Name:</span> <span className="text-sand-100 font-bold">{mod.nodeName}</span></div>
-                    <div><span className="text-sand-600 font-bold">Package Source:</span> <span className="text-emerald-primary font-bold">{mod.packageSource}</span></div>
+                    <div><span className="text-sand-600 font-bold">Node Name:</span> <span className="text-sand-100 font-bold font-mono">{mod.nodeName}</span></div>
+                    <div><span className="text-sand-600 font-bold">Package Source:</span> <span className="text-emerald-primary font-bold font-mono">{mod.packageSource}</span></div>
                     <div className="pt-1"><span className="text-sand-600 font-bold block mb-0.5">Codebase Evidence:</span> <p className="text-sand-300 bg-sand-950 p-2 rounded border border-sand-800 leading-relaxed">{mod.evidence}</p></div>
                   </div>
 
@@ -251,7 +251,7 @@ export function RobotDetailExplorer({
 
       {/* Tab 3: Detected Sensor Origins & 3D Parameters */}
       {activeTab === 'sensors' && (
-        <div className="p-6 space-y-6 font-mono text-xs">
+        <div className="p-6 space-y-6 text-xs">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {robot.sensors.map((sensor, idx) => (
               <div key={idx} className="minimal-card p-5 space-y-4">
@@ -292,7 +292,7 @@ export function RobotDetailExplorer({
                 </div>
 
                 <div className="flex items-center justify-between text-[10px] pt-1">
-                  <span className="text-sand-600">Source: {sensor.sourceFile || 'not resolved'}</span>
+                  <span className="text-sand-600 font-mono">Source: {sensor.sourceFile || 'not resolved'}</span>
                   <span className={sensor.meshUrl ? 'text-emerald-400 font-bold' : 'text-sand-600'}>
                     {sensor.meshUrl ? '✓ Real mesh resolved' : 'No STL mesh found — using primitive geometry'}
                   </span>
@@ -319,7 +319,7 @@ export function RobotDetailExplorer({
 
       {/* Tab 4: Physical Chassis Kinematics */}
       {activeTab === 'kinematics' && (
-        <div className="p-6 space-y-6 font-mono text-xs">
+        <div className="p-6 space-y-6 text-xs">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="minimal-card p-5 space-y-3">
               <h3 className="font-bold text-sand-50 text-sm border-b border-sand-800 pb-2 text-emerald-primary">
@@ -379,19 +379,19 @@ export function RobotDetailExplorer({
 
       {/* Tab 5: Nav2 Stack Parameters */}
       {activeTab === 'nav2' && (
-        <div className="p-6 space-y-6 font-mono text-xs">
+        <div className="p-6 space-y-6 text-xs">
           {robot.navigationStack.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {robot.navigationStack.map((nav, idx) => (
                 <div key={idx} className="minimal-card p-5 space-y-3">
                   <div className="flex justify-between border-b border-sand-800 pb-2">
                     <span className="font-bold text-sand-50 text-sm text-emerald-primary">{nav.module}</span>
-                    <span className="text-[10px] bg-sand-800 px-2 py-0.5 rounded text-sand-300">{nav.packageProvider}</span>
+                    <span className="text-[10px] bg-sand-800 px-2 py-0.5 rounded text-sand-300 font-mono">{nav.packageProvider}</span>
                   </div>
                   <p className="text-sand-400 leading-relaxed">{nav.description}</p>
 
                   {nav.parameters && nav.parameters.length > 0 && (
-                    <div className="space-y-1 pt-2 border-t border-sand-800">
+                    <div className="space-y-1 pt-2 border-t border-sand-800 font-mono">
                       <span className="font-bold text-sand-200 block">Ingested YAML Parameters:</span>
                       {nav.parameters.map((p, pIdx) => (
                         <div key={pIdx} className="flex justify-between py-1 border-b border-sand-800/60">
@@ -417,7 +417,7 @@ export function RobotDetailExplorer({
         <div className="p-6 space-y-6 font-sans">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {robot.testCases.map((test) => (
-              <div key={test.id} className="minimal-card p-5 space-y-4 font-mono text-xs rounded-xl">
+              <div key={test.id} className="minimal-card p-5 space-y-4 text-xs rounded-xl">
                 <div className="flex justify-between border-b border-sand-800 pb-2">
                   <span className="font-bold text-sand-50">{test.name}</span>
                   <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-light text-emerald-text font-bold border border-emerald-border">
@@ -442,7 +442,7 @@ export function RobotDetailExplorer({
                 </button>
 
                 {testLogs[test.id] && (
-                  <div className="p-3 bg-sand-950 text-sand-200 rounded text-[11px] space-y-1 border border-sand-800">
+                  <div className="p-3 bg-sand-950 text-sand-200 rounded text-[11px] space-y-1 border border-sand-800 font-mono">
                     {testLogs[test.id].map((log, lIdx) => (
                       <div key={lIdx} className={log.includes('PASS') ? 'text-emerald-400 font-bold' : ''}>{log}</div>
                     ))}

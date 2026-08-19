@@ -276,14 +276,14 @@ export default function ProjectsPage() {
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 minimal-card p-6">
         <div className="flex items-center gap-3.5">
-          <div className="p-3.5 rounded-xl bg-sand-800 text-white font-mono font-bold shrink-0">
+          <div className="p-3.5 rounded-xl bg-sand-800 text-white font-bold shrink-0">
             <Layers className="h-6 w-6 text-emerald-primary" />
           </div>
           <div>
             <h1 className="text-xl font-display font-extrabold text-sand-50 tracking-tight">
               Robot Projects
             </h1>
-            <p className="text-xs text-sand-500 font-mono mt-0.5">
+            <p className="text-xs text-sand-500 mt-0.5">
               Each project is one robot's autonomy codebase — attach its GitHub repositories, then run the AI audit to get its data.
             </p>
           </div>
@@ -291,7 +291,7 @@ export default function ProjectsPage() {
 
         <button
           onClick={() => setShowCreateModal(true)}
-          className="btn-emerald-primary py-2.5 px-4 text-xs font-bold font-mono flex items-center gap-2 shrink-0 cursor-pointer"
+          className="btn-emerald-primary py-2.5 px-4 text-xs font-bold flex items-center gap-2 shrink-0 cursor-pointer"
         >
           <FolderPlus className="h-4 w-4" />
           Create New Project
@@ -300,11 +300,11 @@ export default function ProjectsPage() {
 
       {/* Quick-Start Ingest Card */}
       <div className="minimal-card p-6 space-y-4">
-        <div className="flex items-center gap-2 text-xs font-mono font-bold text-emerald-primary uppercase tracking-wider">
+        <div className="flex items-center gap-2 text-xs font-bold text-emerald-primary uppercase tracking-wider">
           <Globe className="h-4 w-4" />
           Quick Start
         </div>
-        <p className="text-xs text-sand-400 font-mono leading-relaxed max-w-3xl">
+        <p className="text-xs text-sand-400 leading-relaxed max-w-3xl">
           Paste a GitHub ROS 2 repository URL to create a new robot project for it and run the agentic audit immediately.
         </p>
         <form onSubmit={handleQuickStart} className="flex flex-col sm:flex-row gap-3">
@@ -314,12 +314,12 @@ export default function ProjectsPage() {
             value={quickUrl}
             onChange={(e) => setQuickUrl(e.target.value)}
             placeholder="https://github.com/organization/repository"
-            className="flex-1 px-4 py-3 rounded-xl border border-sand-700 bg-sand-950 text-sand-50 font-mono text-xs focus:outline-none focus:border-emerald-primary min-w-0"
+            className="flex-1 px-4 py-3 rounded-xl border border-sand-700 bg-sand-950 text-sand-50 text-xs focus:outline-none focus:border-emerald-primary min-w-0"
           />
           <button
             type="submit"
             disabled={!!auditingProjectId}
-            className="btn-emerald-primary py-3 px-6 font-mono text-xs font-bold shrink-0 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+            className="btn-emerald-primary py-3 px-6 text-xs font-bold shrink-0 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
           >
             <Sparkles className="h-4 w-4" />
             Create & Audit
@@ -330,7 +330,7 @@ export default function ProjectsPage() {
       {/* Create Project Modal */}
       {showCreateModal && (
         <ModalShell onClose={() => setShowCreateModal(false)} title="Create New Robot Project" icon={FolderPlus}>
-          <form onSubmit={handleCreateProject} className="space-y-4 font-mono text-xs">
+          <form onSubmit={handleCreateProject} className="space-y-4 text-xs">
             <div>
               <label className="block text-sand-300 font-bold mb-1">Robot / Project Name:</label>
               <input
@@ -377,7 +377,7 @@ export default function ProjectsPage() {
       {projects.length > 0 ? (
         <div className="minimal-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left font-mono text-xs border-collapse">
+            <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-sand-925 border-b border-sand-800 text-sand-300 font-semibold">
                   <th className="py-3 px-4">Project (Robot)</th>
@@ -449,7 +449,7 @@ export default function ProjectsPage() {
           </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between px-4 py-3 border-t border-sand-800 bg-sand-925/60 font-mono text-xs">
+          <div className="flex items-center justify-between px-4 py-3 border-t border-sand-800 bg-sand-925/60 text-xs">
             <span className="text-sand-500">
               Showing {(clampedPage - 1) * PAGE_SIZE + 1}–{Math.min(clampedPage * PAGE_SIZE, projects.length)} of {projects.length} project{projects.length === 1 ? '' : 's'}
             </span>
@@ -477,13 +477,13 @@ export default function ProjectsPage() {
           <Globe className="h-10 w-10 mx-auto text-sand-600" />
           <div className="space-y-1">
             <h3 className="text-base font-bold text-sand-50">No Projects Created Yet</h3>
-            <p className="text-xs text-sand-500 font-mono max-w-md mx-auto">
+            <p className="text-xs text-sand-500 max-w-md mx-auto">
               Create a project for each robot to group its GitHub repositories and run an AI audit against its autonomy codebase.
             </p>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="btn-emerald-primary py-2.5 px-5 text-xs font-mono font-bold inline-flex items-center gap-2 cursor-pointer"
+            className="btn-emerald-primary py-2.5 px-5 text-xs font-bold inline-flex items-center gap-2 cursor-pointer"
           >
             <FolderPlus className="h-4 w-4" />
             Create First Project
@@ -494,7 +494,7 @@ export default function ProjectsPage() {
       {/* Project Detail Modal */}
       {viewingProject && (
         <ModalShell onClose={() => setViewingProjectId(null)} title={viewingProject.name} icon={GitFork} wide>
-          <div className="space-y-5 font-mono text-xs">
+          <div className="space-y-5 text-xs">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sand-400 flex-1 min-w-0">{viewingProject.description}</p>
               {viewingProject.isAudited && viewingProject.auditedRobotProfile && (
@@ -630,7 +630,7 @@ function ModalShell({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-sand-800 p-5">
-          <h3 className="text-sm font-bold text-sand-50 font-mono flex items-center gap-2">
+          <h3 className="text-sm font-bold text-sand-50 flex items-center gap-2">
             <Icon className="h-4 w-4 text-emerald-primary" />
             {title}
           </h3>

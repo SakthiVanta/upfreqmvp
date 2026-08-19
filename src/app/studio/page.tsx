@@ -18,7 +18,7 @@ export default function StudioPage() {
 
           <div>
             <h1 className="text-xl font-bold text-sand-50">Gated Studio — Authentication Required</h1>
-            <p className="text-xs text-sand-500 font-mono mt-1">
+            <p className="text-xs text-sand-500 mt-1">
               Sign in with GitHub to access the 3D Parametric Model Customizer & Xacro Code Generator.
             </p>
           </div>
@@ -42,13 +42,13 @@ export default function StudioPage() {
             <Box className="h-5 w-5 text-emerald-primary" />
             3D Parametric Studio & Xacro Code Generator
           </h1>
-          <p className="text-xs text-sand-500 font-mono">
+          <p className="text-xs text-sand-500">
             Manipulate 3D sensor origins in real-time and export custom <code className="bg-sand-800 px-1 py-0.5 rounded text-sand-100">.urdf.xacro</code> code macros.
           </p>
         </div>
 
         {selectedRobot && (
-          <div className="flex items-center gap-2 font-mono text-xs">
+          <div className="flex items-center gap-2 text-xs">
             <span className="text-xs font-bold text-emerald-text bg-emerald-light border border-emerald-border px-3 py-1 rounded-lg">
               Active Repository: {selectedRobot.name}
             </span>
@@ -73,7 +73,7 @@ export default function StudioPage() {
           </div>
           <div className="max-w-md mx-auto space-y-2">
             <h2 className="text-lg font-bold text-sand-50">Studio Empty — No 3D Model Loaded</h2>
-            <p className="text-xs text-sand-500 font-mono leading-relaxed">
+            <p className="text-xs text-sand-500 leading-relaxed">
               Submit your robotics GitHub repository URL on the Dashboard, or load one from your Robot Library, to view its 3D WebGL model and edit kinematic offsets.
             </p>
           </div>

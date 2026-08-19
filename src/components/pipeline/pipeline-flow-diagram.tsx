@@ -32,7 +32,7 @@ function StageNode({ data }: NodeProps) {
   return (
     <div className={`px-3 py-2.5 rounded-xl border-2 bg-sand-925 shadow-lg min-w-[190px] ${cfg.border}`}>
       <Handle type="target" position={Position.Left} className="!bg-sand-600 !border-sand-900 !w-2 !h-2" />
-      <div className={`flex items-center gap-1.5 text-[10px] font-mono font-bold uppercase tracking-wide ${cfg.text}`}>
+      <div className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide ${cfg.text}`}>
         <Icon className="h-3 w-3" />
         {cfg.label}
       </div>

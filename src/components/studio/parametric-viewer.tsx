@@ -557,7 +557,7 @@ function ParametricViewerLoaded({ robot }: { robot: RobotProfile }) {
     <div id="parametric-studio" className="space-y-6 font-sans">
 
       {/* 1. Interactive Robot Model Selector Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 minimal-card p-4 font-mono">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 minimal-card p-4">
         <div className="flex items-center gap-2.5">
           <Layers className="h-5 w-5 text-emerald-primary shrink-0" />
           <span className="text-xs font-extrabold text-sand-100 uppercase tracking-wider">
@@ -590,10 +590,10 @@ function ParametricViewerLoaded({ robot }: { robot: RobotProfile }) {
           </div>
           <div className="max-w-lg mx-auto space-y-2">
             <h2 className="text-lg font-bold text-sand-50">Chassis Dimensions Not Determined</h2>
-            <p className="text-xs text-sand-500 font-mono leading-relaxed">
+            <p className="text-xs text-sand-500 leading-relaxed">
               {activeRobot.name}'s length, width, height, wheelbase, or wheel radius could not be resolved from this repository — often because they're defined via Xacro properties loaded from a separate YAML file the analysis couldn't confidently trace. Rendering a 3D model would mean guessing its shape, so nothing is shown here rather than a placeholder that looks like real geometry.
             </p>
-            <p className="text-xs text-sand-600 font-mono pt-2">
+            <p className="text-xs text-sand-600 pt-2">
               Check the Kinematics tab in the Agent Workspace for exactly which fields are missing.
             </p>
           </div>
@@ -602,7 +602,7 @@ function ParametricViewerLoaded({ robot }: { robot: RobotProfile }) {
       <>
 
       {!isDefaultAndino(activeRobot) && !lidarMeshUrl && !cameraMeshUrl && (
-        <div className="minimal-card p-3.5 flex items-center gap-2.5 text-xs font-mono text-sand-400">
+        <div className="minimal-card p-3.5 flex items-center gap-2.5 text-xs text-sand-400">
           <Box className="h-4 w-4 text-amber-500 shrink-0" />
           No matching .stl meshes were resolved from this repository's URDF — rendering parametric primitive geometry instead of stand-in meshes.
         </div>
@@ -619,13 +619,13 @@ function ParametricViewerLoaded({ robot }: { robot: RobotProfile }) {
               <h3 className="text-sm font-bold text-white font-sans flex items-center gap-2">
                 HIL Simulation Test Suite Passed (100% Kinematic Stability)
               </h3>
-              <p className="text-xs text-emerald-100 font-mono mt-0.5">
+              <p className="text-xs text-emerald-100 mt-0.5">
                 New parameter bounds verified against Nav2 costmaps & Gazebo physics. Would you like to commit these updates to your repository code?
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 font-mono text-xs shrink-0">
+          <div className="flex items-center gap-2 text-xs shrink-0">
             {codeCommitted ? (
               <span className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold flex items-center gap-1.5">
                 <Check className="h-4 w-4" />
@@ -661,12 +661,12 @@ function ParametricViewerLoaded({ robot }: { robot: RobotProfile }) {
           {/* 3D WebGL Canvas Viewport */}
           <div className="minimal-card relative h-105 sm:h-130 overflow-hidden bg-sand-950 rounded-2xl">
 
-            <div className="absolute top-3 left-3 z-10 flex items-center gap-2 bg-sand-950/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-sand-800 text-xs font-mono shadow-xs text-sand-100 max-w-[calc(100%-1.5rem)]">
+            <div className="absolute top-3 left-3 z-10 flex items-center gap-2 bg-sand-950/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-sand-800 text-xs shadow-xs text-sand-100 max-w-[calc(100%-1.5rem)]">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
               <span className="font-bold truncate">{activeRobot.name.toUpperCase()} (3D MODEL VIEWPORT)</span>
             </div>
 
-            <div className="absolute top-3 right-3 z-10 flex flex-wrap items-center gap-1.5 font-mono">
+            <div className="absolute top-3 right-3 z-10 flex flex-wrap items-center gap-1.5">
               <button
                 onClick={() => setShowTfFrames(!showTfFrames)}
                 className={`px-3 py-1.5 rounded-lg text-[11px] border transition-all flex items-center gap-1.5 cursor-pointer ${
@@ -737,7 +737,7 @@ function ParametricViewerLoaded({ robot }: { robot: RobotProfile }) {
               <OrbitControls enableDamping dampingFactor={0.05} />
             </Canvas>
 
-            <div className="absolute bottom-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 bg-sand-950/90 backdrop-blur-md p-3 rounded-xl border border-sand-800 text-xs font-mono shadow-xs text-sand-100">
+            <div className="absolute bottom-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 bg-sand-950/90 backdrop-blur-md p-3 rounded-xl border border-sand-800 text-xs shadow-xs text-sand-100">
               <button
                 onClick={handleRunHILTest}
                 disabled={isTesting}
@@ -758,7 +758,7 @@ function ParametricViewerLoaded({ robot }: { robot: RobotProfile }) {
           </div>
 
           {/* Dynamic Inertia & Kinematics Physics Metrics Panel */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
             <div className="minimal-card p-3.5 rounded-xl">
               <span className="text-[10px] text-sand-500 block uppercase font-bold">Inertia Izz</span>
               <span className="text-sm font-extrabold text-emerald-primary">{izz.toFixed(4)} kg·m²</span>
@@ -804,11 +804,11 @@ function ParametricViewerLoaded({ robot }: { robot: RobotProfile }) {
             <div className="flex flex-wrap items-center justify-between border-b border-sand-800 pb-3 gap-2">
               <div className="flex items-center gap-2">
                 <FileCode className="h-4 w-4 text-emerald-primary" />
-                <span className="text-xs font-bold text-sand-100 uppercase tracking-wider font-mono">
+                <span className="text-xs font-bold text-sand-100 uppercase tracking-wider">
                   Generated Xacro Output ({activeRobot.name})
                 </span>
               </div>
-              <div className="flex items-center gap-2 font-mono">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => copyToClipboard(generatedXacro, 'xacro')}
                   className="px-3 py-1.5 rounded-lg bg-sand-800 hover:bg-sand-700 text-sand-200 text-xs font-semibold flex items-center gap-1 transition-colors border border-sand-700 cursor-pointer"
@@ -834,7 +834,7 @@ function ParametricViewerLoaded({ robot }: { robot: RobotProfile }) {
         </div>
 
         {/* Right Column: Exhaustive Granular Control Sliders (5 columns) */}
-        <div className="lg:col-span-5 flex flex-col gap-4 font-mono text-xs">
+        <div className="lg:col-span-5 flex flex-col gap-4 text-xs">
           <div className="minimal-card p-6 rounded-2xl space-y-5">
 
             <div className="flex items-center justify-between border-b border-sand-800 pb-3">

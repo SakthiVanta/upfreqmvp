@@ -30,7 +30,7 @@ export function StreamHud({
   // If not active, not complete, and no logs, render a clean idle banner
   if (!activeState && !isComplete && logs.length === 0) {
     return (
-      <div id="agent-stream" className="minimal-card overflow-hidden font-mono text-xs">
+      <div id="agent-stream" className="minimal-card overflow-hidden text-xs">
         <div className="flex items-center justify-between border-b border-sand-800 bg-sand-925/60 px-4 py-3">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sand-800 text-sand-400 border border-sand-700">
@@ -38,14 +38,14 @@ export function StreamHud({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-sand-100 font-mono">
+                <span className="text-xs font-bold uppercase tracking-wider text-sand-100">
                   Agentic Reasoning Stream
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold bg-sand-800 text-sand-400 border border-sand-700">
                   IDLE
                 </span>
               </div>
-              <p className="text-[11px] text-sand-500 font-mono mt-0.5">
+              <p className="text-[11px] text-sand-500 mt-0.5">
                 Target Codebase: <span className="font-semibold text-sand-300">Waiting for user input</span>
               </p>
             </div>
@@ -67,7 +67,7 @@ export function StreamHud({
     <div id="agent-stream" className="minimal-card overflow-hidden font-sans">
 
       {/* HUD Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-sand-800 bg-sand-925/60 px-4 py-3 font-mono">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-sand-800 bg-sand-925/60 px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-light text-emerald-primary border border-emerald-border">
             <Cpu className={`h-4 w-4 ${activeState ? 'animate-pulse' : ''}`} />
@@ -123,7 +123,7 @@ export function StreamHud({
           <div className="flex items-start gap-3">
             <Sparkles className="h-5 w-5 text-emerald-primary shrink-0 mt-0.5" />
             <div className="flex-1">
-              <span className="text-xs font-bold text-sand-100 uppercase tracking-wide font-mono block">
+              <span className="text-xs font-bold text-sand-100 uppercase tracking-wide block">
                 Agent Thought Reasoning
               </span>
               <p className="mt-1 text-xs text-sand-200 font-mono bg-sand-950 p-3 rounded-lg border border-sand-800 leading-relaxed">
