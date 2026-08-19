@@ -10,7 +10,7 @@ import { createDynamicRobotProfileFromUrl, RobotProfile } from '@/lib/andino-dat
 import { 
   Sliders, Download, Copy, Check, RotateCcw, Box, Eye, Radio, FileCode, 
   Compass, Activity, PackageCheck, Play, CheckCircle2, AlertTriangle, 
-  GitCommit, RefreshCw, Zap, ShieldCheck, Cpu, Scale, Gauge, Link2, Shield
+  GitCommit, RefreshCw, Zap, ShieldCheck, Cpu, Scale, Gauge, Link2, Shield, Layers
 } from 'lucide-react';
 
 interface ExhaustiveRobotParams {
@@ -107,7 +107,7 @@ function DynamicStlPart({
   );
 }
 
-// Fully Reactive 3D Parametric Robot Model — Sliders directly transform the 3D meshes in real-time
+// Fully Reactive 3D Parametric Robot Model
 function CompositeStlRobotModel({ 
   params, 
   showLaserRays, 
@@ -162,7 +162,7 @@ function CompositeStlRobotModel({
         {showTfFrames && <TfFrame name="cog" position={[0, 0, 0]} />}
       </group>
 
-      {/* 2. DYNAMIC MAIN CHASSIS BODY (Resizes dynamically in X, Y, Z as sliders move) */}
+      {/* 2. DYNAMIC MAIN CHASSIS BODY */}
       <mesh position={[0, params.chassisHeight / 2, 0]}>
         <boxGeometry args={[params.chassisLength, params.chassisHeight, params.chassisWidth]} />
         <meshStandardMaterial color="#4f46e5" opacity={0.35} transparent roughness={0.1} metalness={0.9} />
@@ -189,7 +189,7 @@ function CompositeStlRobotModel({
         />
       </Suspense>
 
-      {/* 4. DYNAMIC PRIMARY LIDAR SENSOR (Moves dynamically in X, Y, Z and adjusts FOV/Range) */}
+      {/* 4. DYNAMIC PRIMARY LIDAR SENSOR */}
       <group position={[params.lidarX, params.chassisHeight + params.lidarZ, params.lidarY]}>
         {showTfFrames && <TfFrame name="rplidar_laser_link" position={[0, 0.02, 0]} rotation={[0, Math.PI, 0]} />}
 
@@ -235,7 +235,7 @@ function CompositeStlRobotModel({
         )}
       </group>
 
-      {/* 5. DYNAMIC CAMERA VISION MODULE (Moves dynamically in X, Y, Z and rotates Pitch/Yaw) */}
+      {/* 5. DYNAMIC CAMERA VISION MODULE */}
       <group 
         position={[params.cameraX, params.chassisHeight / 2 + params.cameraZ, params.cameraY]}
         rotation={[0, THREE.MathUtils.degToRad(params.cameraYawDeg), THREE.MathUtils.degToRad(params.cameraPitchDeg)]}
@@ -264,7 +264,7 @@ function CompositeStlRobotModel({
         )}
       </group>
 
-      {/* 6. DYNAMIC LEFT DRIVE WHEEL (Slides along Y wheelbase and resizes radius) */}
+      {/* 6. DYNAMIC LEFT DRIVE WHEEL */}
       <group ref={leftWheelRef} position={[0, 0, params.wheelbase / 2]}>
         {showTfFrames && <TfFrame name="left_wheel_link" position={[0, 0, 0]} />}
         <Suspense fallback={
@@ -283,7 +283,7 @@ function CompositeStlRobotModel({
         </Suspense>
       </group>
 
-      {/* 7. DYNAMIC RIGHT DRIVE WHEEL (Slides along Y wheelbase and resizes radius) */}
+      {/* 7. DYNAMIC RIGHT DRIVE WHEEL */}
       <group ref={rightWheelRef} position={[0, 0, -params.wheelbase / 2]}>
         {showTfFrames && <TfFrame name="right_wheel_link" position={[0, 0, 0]} />}
         <Suspense fallback={
@@ -302,7 +302,7 @@ function CompositeStlRobotModel({
         </Suspense>
       </group>
 
-      {/* 8. DYNAMIC FRONT CASTER WHEEL (Positioned dynamically under front chassis base) */}
+      {/* 8. DYNAMIC FRONT CASTER WHEEL */}
       <group position={[params.chassisLength / 2 - 0.03, -params.wheelRadius / 2 + 0.005, 0]}>
         <Suspense fallback={
           <mesh>
@@ -325,8 +325,17 @@ function CompositeStlRobotModel({
 }
 
 export function ParametricViewer() {
-  const { selectedRobot, ingestedRepoUrl } = useAuth();
+  const { selectedRobot, setSelectedRobot, ingestedRepoUrl } = useAuth();
   const activeRobot = selectedRobot || createDynamicRobotProfileFromUrl(ingestedRepoUrl || 'https://github.com/Ekumen-OS/andino');
+
+  // Available robot models to select from if multiple repos exist
+  const availableRobots: RobotProfile[] = useMemo(() => {
+    const list = [activeRobot];
+    if (ingestedRepoUrl && !list.some(r => r.repoUrl === ingestedRepoUrl)) {
+      list.push(createDynamicRobotProfileFromUrl(ingestedRepoUrl));
+    }
+    return list;
+  }, [activeRobot, ingestedRepoUrl]);
 
   const getRobotInitialParams = (r: RobotProfile): ExhaustiveRobotParams => {
     const lidar = r.sensors.find(s => s.type.includes('Laser') || s.type.includes('LiDAR')) || r.sensors[0];
@@ -489,6 +498,33 @@ export function ParametricViewer() {
   return (
     <div id="parametric-studio" className="space-y-6 font-sans">
       
+      {/* 1. Interactive Robot Model Selector Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-xs font-mono">
+        <div className="flex items-center gap-2.5">
+          <Layers className="h-5 w-5 text-indigo-600 shrink-0" />
+          <span className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">
+            Select Active Robot Model:
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {availableRobots.map((robot) => (
+            <button
+              key={robot.id}
+              onClick={() => setSelectedRobot(robot)}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 border ${
+                activeRobot.id === robot.id
+                  ? 'bg-slate-900 text-white border-slate-800 shadow-xs'
+                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              <span className={`h-2 w-2 rounded-full ${activeRobot.id === robot.id ? 'bg-emerald-400' : 'bg-slate-400'}`} />
+              {robot.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Interactive HIL Test Suite & Code Update Prompt Modal Banner */}
       {showCommitPrompt && (
         <div className="minimal-card p-5 bg-emerald-950 border-emerald-700 text-emerald-100 flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg animate-in fade-in slide-in-from-top-4">
@@ -533,18 +569,19 @@ export function ParametricViewer() {
         </div>
       )}
 
-      {/* Main Grid Layout */}
+      {/* Main Grid Layout: Perfectly Aligned Columns (No Overlapping) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Left Column: 3D Viewport & Metrics (7 columns) */}
-        <div className="lg:col-span-7 flex flex-col gap-4">
+        {/* Left Column: 3D Canvas Viewport, Metrics, Terminal, & Xacro Code (7 columns) */}
+        <div className="lg:col-span-7 flex flex-col gap-6">
           
-          <div className="minimal-card relative h-[480px] sm:h-[540px] overflow-hidden bg-slate-900 border-zinc-800 shadow-xs">
+          {/* 3D WebGL Canvas Viewport */}
+          <div className="minimal-card relative h-[460px] sm:h-[520px] overflow-hidden bg-slate-900 border-zinc-800 shadow-xs rounded-2xl">
             
             {/* Header Controls */}
             <div className="absolute top-3 left-3 z-10 flex items-center gap-2 bg-zinc-950/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-zinc-800 text-xs font-mono shadow-xs text-zinc-100">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-bold">{activeRobot.name.toUpperCase()} (DYNAMIC REPO MODEL)</span>
+              <span className="font-bold">{activeRobot.name.toUpperCase()} (3D MODEL VIEWPORT)</span>
             </div>
 
             <div className="absolute top-3 right-3 z-10 flex flex-wrap items-center gap-1.5 font-mono">
@@ -639,22 +676,22 @@ export function ParametricViewer() {
 
           {/* Dynamic Inertia & Kinematics Physics Metrics Panel */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
-            <div className="minimal-card p-3 bg-white border-zinc-200">
+            <div className="minimal-card p-3.5 bg-white border-zinc-200 rounded-xl shadow-xs">
               <span className="text-[10px] text-zinc-500 block uppercase font-bold">Inertia Izz</span>
               <span className="text-sm font-extrabold text-indigo-600">{izz.toFixed(4)} kg·m²</span>
             </div>
 
-            <div className="minimal-card p-3 bg-white border-zinc-200">
+            <div className="minimal-card p-3.5 bg-white border-zinc-200 rounded-xl shadow-xs">
               <span className="text-[10px] text-zinc-500 block uppercase font-bold">Stopping Distance</span>
               <span className="text-sm font-extrabold text-zinc-900">{stoppingDistM.toFixed(3)} m</span>
             </div>
 
-            <div className="minimal-card p-3 bg-white border-zinc-200">
+            <div className="minimal-card p-3.5 bg-white border-zinc-200 rounded-xl shadow-xs">
               <span className="text-[10px] text-zinc-500 block uppercase font-bold">Max Payload</span>
               <span className="text-sm font-extrabold text-emerald-600">{maxPayloadKg.toFixed(1)} kg</span>
             </div>
 
-            <div className="minimal-card p-3 bg-white border-zinc-200">
+            <div className="minimal-card p-3.5 bg-white border-zinc-200 rounded-xl shadow-xs">
               <span className="text-[10px] text-zinc-500 block uppercase font-bold">Wheel Friction (μ)</span>
               <span className="text-sm font-extrabold text-amber-600">{params.frictionCoeff.toFixed(2)}</span>
             </div>
@@ -662,7 +699,7 @@ export function ParametricViewer() {
 
           {/* Test Logs Terminal Output */}
           {testResult && (
-            <div className="minimal-card p-4 bg-zinc-950 border-zinc-800 font-mono text-xs text-zinc-200 space-y-2">
+            <div className="minimal-card p-4 bg-zinc-950 border-zinc-800 rounded-xl font-mono text-xs text-zinc-200 space-y-2 shadow-xs">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-2 text-[11px] text-zinc-400">
                 <span>HIL SIMULATION TEST SUITE OUTPUT</span>
                 <span className={testResult.passed ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
@@ -680,8 +717,8 @@ export function ParametricViewer() {
           )}
 
           {/* Live Generated Xacro Code Panel */}
-          <div className="minimal-card p-5 bg-white border-zinc-200">
-            <div className="flex items-center justify-between mb-3 border-b border-zinc-200 pb-2">
+          <div className="minimal-card p-5 bg-white border-zinc-200 rounded-2xl shadow-xs space-y-3">
+            <div className="flex flex-wrap items-center justify-between border-b border-zinc-200 pb-3 gap-2">
               <div className="flex items-center gap-2">
                 <FileCode className="h-4 w-4 text-indigo-600" />
                 <span className="text-xs font-bold text-zinc-900 uppercase tracking-wider font-mono">
@@ -715,7 +752,7 @@ export function ParametricViewer() {
 
         {/* Right Column: Exhaustive Granular Control Sliders (5 columns) */}
         <div className="lg:col-span-5 flex flex-col gap-4 font-mono text-xs">
-          <div className="minimal-card p-6 bg-white border-zinc-200 shadow-xs space-y-5">
+          <div className="minimal-card p-6 bg-white border-zinc-200 rounded-2xl shadow-xs space-y-5">
             
             <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
               <div className="flex items-center gap-2">
@@ -729,7 +766,7 @@ export function ParametricViewer() {
               </span>
             </div>
 
-            <div className="space-y-4 max-h-[720px] overflow-y-auto pr-2">
+            <div className="space-y-4 max-h-[760px] overflow-y-auto pr-2">
               
               {/* Group 1: Chassis Kinematics & Inertia */}
               <div className="space-y-3">
