@@ -17,6 +17,9 @@ export interface SensorRecord {
   collisionType?: string;
   mass?: number;
   detailedParams?: DetailedSensorParam[];
+  /** Raw GitHub URL to the sensor's real .stl mesh, resolved from the repo's own URDF — null/absent means no matching STL was found and the 3D viewer should fall back to primitive geometry instead of a stand-in mesh. */
+  meshUrl?: string | null;
+  sourceFile?: string;
 }
 
 export interface DataFlowNode {
@@ -134,6 +137,8 @@ export interface RobotProfile {
   testCases: TestCaseRecord[];
   launchFiles: string[];
   diagnosticsNotice: string;
+  /** True when no LiDAR/camera/IMU joints could be pattern-matched in the repo's URDF and placeholder sensor geometry is being shown instead. */
+  usedFallbackSensors?: boolean;
 }
 
 // Dynamic Profile Generator constructed live from any ingested GitHub repository
@@ -368,6 +373,7 @@ export function createDynamicRobotProfileFromUrl(repoUrl: string, parsedData?: a
       }
     ],
     launchFiles: parsedData?.launchFiles || [`${repoName}_bringup/launch/robot.launch.py`],
-    diagnosticsNotice: `DYNAMIC REPO AUDIT SUMMARY: Parsed repository geometry, sensor data-flows, and autonomy modules for '${repoUrl}'.`
+    diagnosticsNotice: parsedData?.diagnosticsNotice || `DYNAMIC REPO AUDIT SUMMARY: Parsed repository geometry, sensor data-flows, and autonomy modules for '${repoUrl}'.`,
+    usedFallbackSensors: parsedData?.usedFallbackSensors ?? !parsedData,
   };
 }
