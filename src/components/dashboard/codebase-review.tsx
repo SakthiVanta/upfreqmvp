@@ -8,13 +8,13 @@ import { AutonomyFeatureCheck, RobotProfile } from '@/lib/robot-profile';
 // scannable list of checkboxes, not a wall of quoted file paths.
 function FeatureRow({ feature, indent }: { feature: AutonomyFeatureCheck; indent?: boolean }) {
   return (
-    <div className={`flex items-center gap-2.5 py-1.5 ${indent ? 'pl-7' : ''}`} title={feature.evidence}>
+    <div className={`flex items-center gap-2.5 py-2 ${indent ? 'pl-8' : ''}`} title={feature.evidence}>
       {feature.present ? (
         <CheckSquare className="h-4 w-4 text-emerald-primary shrink-0" />
       ) : (
         <Square className="h-4 w-4 text-sand-600 shrink-0" />
       )}
-      <span className={`text-xs font-bold ${feature.present ? 'text-sand-50' : 'text-sand-500'}`}>
+      <span className={`text-sm font-semibold ${feature.present ? 'text-sand-50' : 'text-sand-500'}`}>
         {feature.label}
       </span>
     </div>
@@ -23,18 +23,25 @@ function FeatureRow({ feature, indent }: { feature: AutonomyFeatureCheck; indent
 
 // Two-part audit summary shown right after a codebase is connected: which
 // robot models it defines, and a fixed, restricted checklist of autonomy
-// capabilities — not the full Parameter Matrix breakdown.
+// capabilities — not the full Parameter Matrix breakdown. Stacked into one
+// clear flow (not two look-alike side-by-side cards) so it's obvious at a
+// glance which part is "robots" and which is "features".
 export function CodebaseReview({ robot }: { robot: RobotProfile }) {
   const robotVariants = robot.robotVariants || [];
   const codebaseReview = robot.codebaseReview || [];
+  const presentCount = codebaseReview.reduce(
+    (n, f) => n + (f.present ? 1 : 0) + (f.subChecks?.filter(sc => sc.present).length || 0),
+    0
+  );
+  const totalCount = codebaseReview.reduce((n, f) => n + 1 + (f.subChecks?.length || 0), 0);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="space-y-6">
 
-      <div className="minimal-card p-5 space-y-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-sand-100 uppercase tracking-wider">
+      <div>
+        <div className="flex items-center gap-2 text-xs font-bold text-sand-500 uppercase tracking-wider mb-3">
           <GitFork className="h-4 w-4 text-emerald-primary" />
-          Robots Found in This Codebase ({robotVariants.length})
+          Robots Found ({robotVariants.length})
         </div>
         {robotVariants.length > 0 ? (
           <div className="flex flex-wrap gap-2">
@@ -49,20 +56,29 @@ export function CodebaseReview({ robot }: { robot: RobotProfile }) {
         )}
       </div>
 
-      <div className="minimal-card p-5 space-y-0.5">
-        <div className="flex items-center gap-2 text-xs font-bold text-sand-100 uppercase tracking-wider mb-2">
-          <ListChecks className="h-4 w-4 text-emerald-primary" />
-          Autonomy Feature Checklist
+      <div className="border-t border-sand-800" />
+
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <div className="flex items-center gap-2 text-xs font-bold text-sand-500 uppercase tracking-wider">
+            <ListChecks className="h-4 w-4 text-emerald-primary" />
+            Autonomy Features
+          </div>
+          {codebaseReview.length > 0 && (
+            <span className="text-xs font-bold text-sand-500">{presentCount} / {totalCount} present</span>
+          )}
         </div>
         {codebaseReview.length > 0 ? (
-          codebaseReview.map((f) => (
-            <React.Fragment key={f.key}>
-              <FeatureRow feature={f} />
-              {f.subChecks?.map(sc => (
-                <FeatureRow key={sc.key} feature={sc} indent />
-              ))}
-            </React.Fragment>
-          ))
+          <div className="divide-y divide-sand-800/60">
+            {codebaseReview.map((f) => (
+              <React.Fragment key={f.key}>
+                <FeatureRow feature={f} />
+                {f.subChecks?.map(sc => (
+                  <FeatureRow key={sc.key} feature={sc} indent />
+                ))}
+              </React.Fragment>
+            ))}
+          </div>
         ) : (
           <p className="text-xs text-sand-500">Not evaluated for this repository.</p>
         )}

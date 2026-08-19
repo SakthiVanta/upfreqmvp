@@ -4,13 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Plus, Trash2, GitFork, X, Sparkles,
-  Loader2, AlertTriangle, Bot
+  Loader2, AlertTriangle, Bot, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { createDynamicRobotProfileFromUrl } from '@/lib/robot-profile';
 import { saveRobotToLibrary } from '@/lib/robot-library';
 import { useAuth } from '@/lib/auth-context';
 import { loadUserProjects, saveUserProjects, UserProject } from '@/lib/user-projects';
-import { StreamHud } from '@/components/agent/stream-hud';
 import { CodebaseReview } from '@/components/dashboard/codebase-review';
 
 export default function ProjectDetailPage() {
@@ -21,6 +20,9 @@ export default function ProjectDetailPage() {
 
   const [project, setProject] = useState<UserProject | null | undefined>(undefined);
   const [repoUrlInput, setRepoUrlInput] = useState('');
+  // Collapsed by default once a project is already audited — repo setup is
+  // secondary at that point and shouldn't compete with the Codebase Review.
+  const [repoSectionOpen, setRepoSectionOpen] = useState(false);
 
   const [isAuditing, setIsAuditing] = useState(false);
   const [streamLogs, setStreamLogs] = useState<string[]>([]);
@@ -28,7 +30,9 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     const projects = loadUserProjects();
-    setProject(projects.find(p => p.id === projectId) || null);
+    const found = projects.find(p => p.id === projectId) || null;
+    setProject(found);
+    setRepoSectionOpen(!found?.isAudited);
   }, [projectId]);
 
   const updateProject = (updater: (p: UserProject) => UserProject) => {
@@ -154,7 +158,7 @@ export default function ProjectDetailPage() {
   }
 
   return (
-    <div className="space-y-6 font-sans pb-16 max-w-3xl">
+    <div className="space-y-6 font-sans pb-16 w-full">
 
       <button
         onClick={() => router.push('/projects')}
@@ -212,75 +216,100 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {/* Secondary: repository setup and the audit trigger. */}
-      <div className="minimal-card p-5 sm:p-6 space-y-5 text-xs">
-        <div className="text-[11px] font-bold text-sand-500 uppercase tracking-wider">
-          Repository Setup
-        </div>
+      {/* Secondary: repository setup and the audit trigger, collapsed by
+          default once already audited so it doesn't compete with the
+          Codebase Review above. */}
+      <div className="minimal-card overflow-hidden text-xs">
+        <button
+          onClick={() => setRepoSectionOpen(o => !o)}
+          className="w-full flex items-center justify-between gap-3 p-5 sm:px-6 cursor-pointer"
+        >
+          <span className="text-[11px] font-bold text-sand-500 uppercase tracking-wider">
+            Repository Setup {project.repos.length > 0 && `(${project.repos.length})`}
+          </span>
+          {repoSectionOpen ? <ChevronUp className="h-4 w-4 text-sand-500" /> : <ChevronDown className="h-4 w-4 text-sand-500" />}
+        </button>
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          <input
-            type="url"
-            value={repoUrlInput}
-            onChange={(e) => setRepoUrlInput(e.target.value)}
-            placeholder="https://github.com/org/sub-repo"
-            className="flex-1 px-3.5 py-2 rounded-xl border border-sand-700 bg-sand-950 text-sand-50 focus:outline-none focus:border-emerald-primary min-w-0"
-          />
-          <button
-            onClick={handleAddRepo}
-            className="px-4 py-2 bg-sand-800 hover:bg-sand-700 text-sand-50 rounded-xl font-bold flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
-          >
-            <Plus className="h-4 w-4 text-emerald-primary" />
-            Add Sub-Repo
-          </button>
-        </div>
+        {repoSectionOpen && (
+          <div className="px-5 sm:px-6 pb-5 sm:pb-6 space-y-5 animate-in fade-in slide-in-from-top-2">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="url"
+                value={repoUrlInput}
+                onChange={(e) => setRepoUrlInput(e.target.value)}
+                placeholder="https://github.com/org/sub-repo"
+                className="flex-1 px-3.5 py-2 rounded-xl border border-sand-700 bg-sand-950 text-sand-50 focus:outline-none focus:border-emerald-primary min-w-0"
+              />
+              <button
+                onClick={handleAddRepo}
+                className="px-4 py-2 bg-sand-800 hover:bg-sand-700 text-sand-50 rounded-xl font-bold flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+              >
+                <Plus className="h-4 w-4 text-emerald-primary" />
+                Add Sub-Repo
+              </button>
+            </div>
 
-        {project.repos.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {project.repos.map((r) => (
-              <div key={r.id} className="flex items-center justify-between p-3 bg-sand-950 rounded-xl border border-sand-800">
-                <div className="flex items-center gap-2 truncate">
-                  <GitFork className="h-3.5 w-3.5 text-emerald-primary shrink-0" />
-                  <span className="font-bold text-sand-100 truncate">{r.name}</span>
-                </div>
-                <button
-                  onClick={() => handleRemoveRepo(r.id)}
-                  className="p-1 text-sand-500 hover:text-rose-400 shrink-0 cursor-pointer"
-                  title="Remove Sub-Repo"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
+            {project.repos.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {project.repos.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between p-3 bg-sand-950 rounded-xl border border-sand-800">
+                    <div className="flex items-center gap-2 truncate">
+                      <GitFork className="h-3.5 w-3.5 text-emerald-primary shrink-0" />
+                      <span className="font-bold text-sand-100 truncate">{r.name}</span>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveRepo(r.id)}
+                      className="p-1 text-sand-500 hover:text-rose-400 shrink-0 cursor-pointer"
+                      title="Remove Sub-Repo"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sand-600 italic">No sub-repositories attached to this project yet — add one above, then run the AI audit.</p>
-        )}
+            ) : (
+              <p className="text-sand-600 italic">No sub-repositories attached to this project yet — add one above, then run the AI audit.</p>
+            )}
 
-        {project.repos.length > 0 && (
-          <button
-            onClick={handleRunAudit}
-            disabled={isAuditing}
-            className="btn-emerald-primary py-2.5 px-4 text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-60"
-          >
-            {isAuditing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            {isAuditing ? 'Auditing...' : project.isAudited ? 'Re-run AI Audit' : 'Run AI Audit'}
-          </button>
-        )}
+            {project.repos.length > 0 && (
+              <button
+                onClick={handleRunAudit}
+                disabled={isAuditing}
+                className="btn-emerald-primary py-2.5 px-4 text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-60"
+              >
+                {isAuditing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {isAuditing ? 'Auditing...' : project.isAudited ? 'Re-run AI Audit' : 'Run AI Audit'}
+              </button>
+            )}
 
-        {isAuditing && (
-          <div className="animate-in fade-in slide-in-from-top-2">
-            <StreamHud isStreaming logs={streamLogs} repoName={project.name} />
-          </div>
-        )}
+            {isAuditing && <AuditProgressModal repoName={project.name} logs={streamLogs} />}
 
-        {!isAuditing && streamError && (
-          <div className="bg-rose-50 border border-rose-200 p-3 rounded-lg text-rose-700">
-            <span className="font-bold">AUDIT NOTICE: </span>{streamError}
+            {!isAuditing && streamError && (
+              <div className="bg-rose-50 border border-rose-200 p-3 rounded-lg text-rose-700">
+                <span className="font-bold">AUDIT NOTICE: </span>{streamError}
+              </div>
+            )}
           </div>
         )}
       </div>
 
+    </div>
+  );
+}
+
+// A compact status modal while an audit is running — spinner, title, and
+// just the current stage — not the full terminal/progress-bar HUD.
+function AuditProgressModal({ repoName, logs }: { repoName: string; logs: string[] }) {
+  const currentStage = logs[logs.length - 1] || 'Connecting to GitHub API...';
+  return (
+    <div className="fixed inset-0 z-50 bg-sand-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
+      <div className="minimal-card w-full max-w-sm p-6 text-center space-y-4 animate-in fade-in slide-in-from-top-4">
+        <Loader2 className="h-8 w-8 mx-auto animate-spin text-emerald-primary" />
+        <div>
+          <h3 className="text-sm font-bold text-sand-50">Auditing {repoName}...</h3>
+          <p className="text-xs text-sand-500 mt-2 leading-relaxed">{currentStage}</p>
+        </div>
+      </div>
     </div>
   );
 }
