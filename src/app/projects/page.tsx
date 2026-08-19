@@ -246,7 +246,7 @@ export default function ProjectsPage() {
 
       {/* Title Bar */}
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-display font-extrabold text-sand-50 tracking-tight">
+        <h1 className="text-3xl font-display font-extrabold text-sand-50 tracking-tight">
           Projects
         </h1>
 
@@ -309,14 +309,14 @@ export default function ProjectsPage() {
       {projects.length > 0 ? (
         <div className="minimal-card overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-sm border-collapse">
               <thead>
-                <tr className="bg-sand-925 border-b border-sand-800 text-sand-300 font-semibold">
-                  <th className="py-3 px-4">Project (Robot)</th>
-                  <th className="py-3 px-4">Repos</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Robots Found</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                <tr className="bg-sand-925 border-b border-sand-800 text-sand-300 font-semibold text-xs uppercase tracking-wide">
+                  <th className="py-3.5 px-4">Project</th>
+                  <th className="py-3.5 px-4">Repos</th>
+                  <th className="py-3.5 px-4">Status</th>
+                  <th className="py-3.5 px-4">Robots Found</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-sand-800">
@@ -324,52 +324,52 @@ export default function ProjectsPage() {
                   const isAuditingThis = auditingProjectId === p.id;
                   return (
                     <tr key={p.id} className="hover:bg-sand-925/60 transition-colors cursor-pointer" onClick={() => setViewingProjectId(p.id)}>
-                      <td className="py-3 px-4 max-w-72">
-                        <div className="font-bold text-sand-50 truncate">{p.name}</div>
-                        <div className="text-[11px] text-sand-500 truncate">{p.description}</div>
+                      <td className="py-4 px-4 max-w-72">
+                        <div className="font-bold text-base text-sand-50 truncate">{p.name}</div>
+                        <div className="text-xs text-sand-500 truncate">{p.description}</div>
                       </td>
-                      <td className="py-3 px-4 text-sand-300">
+                      <td className="py-4 px-4 text-sand-300">
                         {p.repos.length}
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-4 px-4">
                         {isAuditingThis ? (
-                          <span className="px-2.5 py-0.5 rounded-full bg-sand-800 text-sand-300 border border-sand-700 text-[11px] font-bold flex items-center gap-1 w-fit">
-                            <Loader2 className="h-3 w-3 animate-spin" /> Auditing
+                          <span className="px-2.5 py-1 rounded-full bg-sand-800 text-sand-300 border border-sand-700 text-xs font-bold flex items-center gap-1.5 w-fit">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Auditing
                           </span>
                         ) : p.isAudited && p.auditedRobotProfile ? (
                           p.auditedRobotProfile.usedAgenticAnalysis ? (
-                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-light text-emerald-text border border-emerald-border text-[11px] font-bold flex items-center gap-1 w-fit">
-                              <Bot className="h-3 w-3" /> Gemini Agent
+                            <span className="px-2.5 py-1 rounded-full bg-emerald-light text-emerald-text border border-emerald-border text-xs font-bold flex items-center gap-1.5 w-fit">
+                              <Bot className="h-3.5 w-3.5" /> Gemini Agent
                             </span>
                           ) : (
-                            <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold flex items-center gap-1 w-fit">
-                              <AlertTriangle className="h-3 w-3" /> Heuristic Fallback
+                            <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold flex items-center gap-1.5 w-fit">
+                              <AlertTriangle className="h-3.5 w-3.5" /> Heuristic Fallback
                             </span>
                           )
                         ) : (
-                          <span className="px-2.5 py-0.5 rounded-full bg-sand-800 text-sand-500 border border-sand-700 text-[11px] font-bold w-fit">
+                          <span className="px-2.5 py-1 rounded-full bg-sand-800 text-sand-500 border border-sand-700 text-xs font-bold w-fit">
                             Not Audited
                           </span>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-sand-300">
+                      <td className="py-4 px-4 text-sand-300">
                         {p.isAudited && p.auditedRobotProfile ? (p.auditedRobotProfile.robotVariants || []).length : '—'}
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-4 px-4">
                         <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => setViewingProjectId(p.id)}
                             className="p-2 text-sand-300 hover:text-sand-50 hover:bg-sand-800 rounded-lg border border-sand-700 transition-all cursor-pointer"
                             title="View Project"
                           >
-                            <Eye className="h-3.5 w-3.5" />
+                            <Eye className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteProject(p.id)}
                             className="p-2 text-rose-700 hover:bg-rose-50 rounded-lg border border-rose-200 font-bold transition-all cursor-pointer"
                             title="Delete Project"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </td>
