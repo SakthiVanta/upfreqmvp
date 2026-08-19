@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth-context';
 import { GithubIcon } from '@/components/ui/github-icon';
 import { 
   Cpu, Layers, Box, LogIn, LogOut, Compass, ChevronLeft, ChevronRight, 
-  ShieldCheck, UserCheck, Terminal, Settings, Menu, X, RefreshCw, Database
+  ShieldCheck, UserCheck, Terminal, Settings, Menu, X, RefreshCw, Database, FolderPlus
 } from 'lucide-react';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -114,6 +114,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <Box className="h-4 w-4 shrink-0" />
             {!sidebarCollapsed && <span>3. 3D Parametric Studio</span>}
           </Link>
+
+          <Link
+            href="/projects"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-semibold transition-all ${
+              pathname === '/projects'
+                ? 'bg-emerald-primary text-white shadow-xs'
+                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <FolderPlus className="h-4 w-4 shrink-0 text-emerald-primary" />
+            {!sidebarCollapsed && <span>4. Project Fleet CRUD</span>}
+          </Link>
         </nav>
 
         {/* User Profile & Logout Section */}
@@ -190,6 +202,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             >
               <Box className="h-5 w-5 text-emerald-primary" />
               3. 3D Parametric Studio
+            </Link>
+            <Link
+              href="/projects"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-3 p-3 rounded-xl bg-slate-800 text-white font-bold"
+            >
+              <FolderPlus className="h-5 w-5 text-emerald-primary" />
+              4. Project Fleet CRUD
             </Link>
 
             <div className="pt-4 border-t border-slate-800 space-y-3">
