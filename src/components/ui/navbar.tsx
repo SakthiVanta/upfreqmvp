@@ -1,15 +1,16 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { GithubIcon } from '@/components/ui/github-icon';
-import { Cpu, Layers, Box, LogIn, LogOut, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Cpu, Layers, Box, LogIn, LogOut, CheckCircle2, ShieldAlert, Menu, X } from 'lucide-react';
 
 export function Navbar() {
   const pathname = usePathname();
   const { user, isAuthenticated, logout } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200">
@@ -35,7 +36,7 @@ export function Navbar() {
               </div>
             </Link>
 
-            {/* Real Page Nav Links */}
+            {/* Desktop Nav Links */}
             <nav className="hidden md:flex items-center gap-1 font-mono text-xs font-semibold">
               <Link
                 href="/"
@@ -78,14 +79,13 @@ export function Navbar() {
             </nav>
           </div>
 
-          {/* User Session & Auth Action */}
+          {/* User Session & Mobile Menu Toggle */}
           <div className="flex items-center gap-3 font-mono text-xs">
             {isAuthenticated ? (
               <div className="flex items-center gap-3">
                 <div className="hidden sm:flex items-center gap-2 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200">
                   <span className="h-2 w-2 rounded-full bg-emerald-primary animate-pulse" />
                   <span className="text-slate-800 font-bold">{user?.username}</span>
-                  <span className="text-[10px] text-slate-500">(Authenticated)</span>
                 </div>
 
                 <button
@@ -93,16 +93,11 @@ export function Navbar() {
                   className="px-2.5 py-1 rounded-md text-xs font-mono font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 flex items-center gap-1 transition-colors"
                 >
                   <LogOut className="h-3.5 w-3.5" />
-                  Sign Out
+                  <span className="hidden sm:inline">Sign Out</span>
                 </button>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="hidden sm:flex items-center gap-1 text-amber-600 bg-amber-50 px-2 py-0.5 rounded text-[11px] border border-amber-200">
-                  <ShieldAlert className="h-3 w-3" />
-                  Gated Access
-                </span>
-
                 <Link
                   href="/login"
                   className="btn-emerald-primary py-1.5 px-3 text-xs"
@@ -112,9 +107,51 @@ export function Navbar() {
                 </Link>
               </div>
             )}
+
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 text-slate-600 hover:text-slate-900 rounded-lg border border-slate-200"
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
           </div>
 
         </div>
+
+        {/* Mobile Navigation Drawer */}
+        {mobileMenuOpen && (
+          <div className="md:hidden py-3 border-t border-slate-200 space-y-2 font-mono text-xs">
+            <Link
+              href="/"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 rounded-md hover:bg-slate-100 font-bold text-slate-900"
+            >
+              1. Repo Scanner
+            </Link>
+            <Link
+              href="/dashboard"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 rounded-md hover:bg-slate-100 font-bold text-slate-900"
+            >
+              2. Live Agent Stream
+            </Link>
+            <Link
+              href="/matrix"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 rounded-md hover:bg-slate-100 font-bold text-slate-900"
+            >
+              3. Parameter Matrix
+            </Link>
+            <Link
+              href="/studio"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 rounded-md hover:bg-slate-100 font-bold text-slate-900"
+            >
+              4. 3D Parametric Studio
+            </Link>
+          </div>
+        )}
+
       </div>
     </header>
   );
