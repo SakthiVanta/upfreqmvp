@@ -6,15 +6,22 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { GithubIcon } from '@/components/ui/github-icon';
 import {
-  Layers, Box, LogOut, ChevronLeft, ChevronRight,
-  Menu, X, RefreshCw, Database, FolderPlus, Bot
+  LogOut, ChevronLeft, ChevronRight,
+  Menu, X, RefreshCw, Database, FolderPlus
+  // Layers, Box, Bot — Parameter Matrix / 3D Studio / Robot Library nav
+  // icons, unused while those tabs are commented out below.
 } from 'lucide-react';
 
+// Phase 1 scope: project creation, attaching a GitHub repo, and running the
+// AI agent audit — that's it for now. Parameter Matrix, 3D Parametric
+// Studio, and Robot Library are commented out (not deleted) until a later
+// phase; their routes still work if linked to directly, they're just off
+// the nav.
 const NAV_ITEMS = [
-  { href: '/projects', label: '1. Projects', icon: FolderPlus },
-  { href: '/matrix', label: '2. Parameter Matrix', icon: Layers },
-  { href: '/studio', label: '3. 3D Parametric Studio', icon: Box },
-  { href: '/robots', label: '4. Robot Library', icon: Bot },
+  { href: '/projects', label: 'Projects', icon: FolderPlus },
+  // { href: '/matrix', label: '2. Parameter Matrix', icon: Layers },
+  // { href: '/studio', label: '3. 3D Parametric Studio', icon: Box },
+  // { href: '/robots', label: '4. Robot Library', icon: Bot },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
