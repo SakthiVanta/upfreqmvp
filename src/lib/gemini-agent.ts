@@ -14,7 +14,10 @@ const GEMINI_MODEL = 'gemini-3.5-flash-lite';
 // 7+ separate config files behind one URDF) can legitimately need a dozen-
 // plus reads before the agent has enough to submit. Err generous; the loop
 // still terminates and forces a submission on the last iteration either way.
-const MAX_TOOL_ITERATIONS = 30;
+// Multi-robot repos (e.g. turtlebot3_simulations with 4 variants) need a
+// URDF/SDF/config read or two per variant on top of the base chassis/sensor
+// exploration, so this needs more headroom than a single-robot repo.
+const MAX_TOOL_ITERATIONS = 40;
 const MAX_FILE_CHARS = 12000;
 
 export interface AgenticSensor {
@@ -56,6 +59,20 @@ export interface AgenticTopic {
   description: string;
 }
 
+export interface AgenticSimAsset {
+  label: string;
+  path: string;
+}
+
+export interface AgenticRobotModel {
+  modelName: string;
+  modelVariable: string;
+  formFactor: string;
+  rolePurpose: string;
+  actuatorsSensors: string[];
+  simulationAssets: AgenticSimAsset[];
+}
+
 export interface AgenticAnalysisResult {
   robotName: string;
   rosVersion: string;
@@ -63,6 +80,7 @@ export interface AgenticAnalysisResult {
   sensors: AgenticSensor[];
   gazeboPlugins: AgenticGazeboPlugin[];
   topics: AgenticTopic[];
+  robotModels: AgenticRobotModel[];
   reasoningSummary: string;
   toolCallCount: number;
 }
@@ -160,9 +178,40 @@ const TOOLS = [
                 required: ['topic', 'type', 'direction', 'nodeOwner', 'description'],
               },
             },
+            robotModels: {
+              type: 'ARRAY',
+              description: 'Every distinct robot model/variant this repository actually defines (e.g. different chassis sizes or sensor loadouts selectable via an env var, launch arg, or separate URDF/SDF files per model). If the repo defines only one robot, still submit it as a single entry here. This field is mandatory and every value in it must be grounded in files you actually opened — never invent a file path, a sensor, or a role/purpose you did not verify. If you cannot verify simulationAssets for a variant, submit an empty array for it rather than guessing a path.',
+              items: {
+                type: 'OBJECT',
+                properties: {
+                  modelName: { type: 'STRING', description: 'Human-readable name, e.g. "TurtleBot3 Burger"' },
+                  modelVariable: { type: 'STRING', description: 'The real identifier/token used to select this variant in the code — an env var value, launch argument, or filename suffix, e.g. "burger"' },
+                  formFactor: { type: 'STRING', description: 'One-line real chassis/sensor summary for this specific variant' },
+                  rolePurpose: { type: 'STRING', description: "What this specific variant is for / how it differs from the other variants, from real evidence (README, package description, comments) — not invented" },
+                  actuatorsSensors: {
+                    type: 'ARRAY',
+                    items: { type: 'STRING' },
+                    description: 'Real actuators and sensors this specific variant has, read from its actual URDF/SDF — not a generic guess shared across all variants.',
+                  },
+                  simulationAssets: {
+                    type: 'ARRAY',
+                    items: {
+                      type: 'OBJECT',
+                      properties: {
+                        label: { type: 'STRING', description: 'e.g. "URDF", "SDF", "Gazebo Bridge Config"' },
+                        path: { type: 'STRING', description: 'Real repo-relative file path for this variant' },
+                      },
+                      required: ['label', 'path'],
+                    },
+                    description: 'Real file paths in this repo specific to this variant — every path must be one you actually resolved or read, never guessed from a naming convention.',
+                  },
+                },
+                required: ['modelName', 'modelVariable', 'formFactor', 'rolePurpose', 'actuatorsSensors', 'simulationAssets'],
+              },
+            },
             reasoningSummary: { type: 'STRING', description: 'Two or three sentences on what you found and any notable uncertainty.' },
           },
-          required: ['robotName', 'rosVersion', 'chassis', 'sensors', 'gazeboPlugins', 'topics', 'reasoningSummary'],
+          required: ['robotName', 'rosVersion', 'chassis', 'sensors', 'gazeboPlugins', 'topics', 'robotModels', 'reasoningSummary'],
         },
       },
     ],
@@ -179,7 +228,9 @@ Be careful matching joint/link names: a joint whose name merely contains a keywo
 
 Accuracy matters far more than speed here — a wrong number that looks confident is worse than admitting you couldn't find it. Before giving up on a field, make sure you've actually opened every YAML file a relevant xacro:property/xacro.load_yaml call references, not just the top-level URDF. If you truly cannot resolve a value after that real effort (no literal number anywhere in the reachable files), fill in a reasonable engineering estimate for a small-to-medium mobile ground robot and explicitly list that field as estimated — the caller discards estimated numbers entirely and shows "not determined" instead, so an honest estimated=true costs nothing, but a wrong confident value is a real bug users will see.
 
-Prioritize files in this order: (1) the main URDF/xacro entry point — usually named after the robot or repo, or referenced from a launch file, not a fragment under an "include/" folder — (2) files it directly includes via xacro:include, (3) YAML files those includes load via xacro.load_yaml or a matching filename convention, (4) package.xml for dependency context. Don't stop at the first file that mentions a sensor keyword — verify you're looking at the actual sensor-bearing joint, not an intermediate mounting link, by checking the parent/child link names make sense. When you have enough information, call submit_analysis exactly once.`;
+Prioritize files in this order: (1) the main URDF/xacro entry point — usually named after the robot or repo, or referenced from a launch file, not a fragment under an "include/" folder — (2) files it directly includes via xacro:include, (3) YAML files those includes load via xacro.load_yaml or a matching filename convention, (4) package.xml for dependency context. Don't stop at the first file that mentions a sensor keyword — verify you're looking at the actual sensor-bearing joint, not an intermediate mounting link, by checking the parent/child link names make sense. When you have enough information, call submit_analysis exactly once.
+
+Multiple robot models: some repos define more than one robot variant — multiple URDF/SDF files sitting side by side directly in a urdf/ folder (not nested under include/), often selected at runtime via an environment variable, launch argument, or filename suffix (e.g. turtlebot3_burger.urdf, turtlebot3_waffle.urdf, turtlebot3_waffle_pi.urdf all in the same package). When you see this pattern, open each variant's own URDF/SDF and any config file specific to it, and report every one of them in robotModels with its own real actuators/sensors and its own real file paths — do not describe one variant and copy its details onto the others. This field is mandatory: submit one entry even for a single-robot repo. Never pad it with a made-up file path or a sensor you didn't actually see in that variant's own file — an honest empty simulationAssets array is fine, a guessed path is not.`;
 
 interface GeminiPart {
   text?: string;
@@ -342,6 +393,14 @@ export async function runAgenticAnalysis(
           })),
           gazeboPlugins: args.gazeboPlugins || [],
           topics: args.topics || [],
+          robotModels: (args.robotModels || []).map((m: any) => ({
+            modelName: m.modelName,
+            modelVariable: m.modelVariable,
+            formFactor: m.formFactor,
+            rolePurpose: m.rolePurpose,
+            actuatorsSensors: m.actuatorsSensors || [],
+            simulationAssets: m.simulationAssets || [],
+          })),
           reasoningSummary: args.reasoningSummary || '',
           toolCallCount,
         };

@@ -102,6 +102,24 @@ export interface AutonomyFeatureCheck {
   subChecks?: AutonomyFeatureCheck[];
 }
 
+export interface RobotModelSimAsset {
+  label: string;
+  path: string;
+}
+
+/** Per-robot-variant deep breakdown from the Gemini agent — role/purpose,
+ * real actuators/sensors, and real simulation asset file paths specific to
+ * that one variant. Empty when the agent was unavailable (regex fallback
+ * has no way to produce this) — never backfilled with a guess. */
+export interface RobotModelDetail {
+  modelName: string;
+  modelVariable: string;
+  formFactor: string;
+  rolePurpose: string;
+  actuatorsSensors: string[];
+  simulationAssets: RobotModelSimAsset[];
+}
+
 export interface RobotProfile {
   id: string;
   name: string;
@@ -158,6 +176,8 @@ export interface RobotProfile {
   autonomyModules: AutonomyModuleClassification[];
   /** Distinct robot models this codebase actually defines, read from real URDF/Xacro entry-point filenames — not a fixed/known-robots list. */
   robotVariants: string[];
+  /** Per-variant deep breakdown from the Gemini agent (role/purpose, real actuators/sensors, real simulation asset paths) — empty when the agent was unavailable, matched to robotVariants by name for the detail modal. */
+  robotModels: RobotModelDetail[];
   /** Fixed, restricted autonomy-feature checklist shown on the Codebase Review — sensor pipeline, motor control, state estimation, SLAM, localization, navigation (with path/motion planning sub-checks). */
   codebaseReview: AutonomyFeatureCheck[];
   navigationStack: Nav2ConfigRecord[];
@@ -236,6 +256,7 @@ export function createDynamicRobotProfileFromUrl(repoUrl: string, parsedData?: a
     dataFlowPipeline,
     autonomyModules,
     robotVariants: parsedData?.robotVariants ?? [],
+    robotModels: parsedData?.robotModels ?? [],
     codebaseReview: parsedData?.codebaseReview ?? [],
     navigationStack: parsedData?.navigationStack ?? [],
     environments: parsedData?.environments ?? [],
