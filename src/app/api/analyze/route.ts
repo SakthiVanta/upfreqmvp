@@ -100,11 +100,24 @@ function classifyAutonomyModules(
 // that are clearly shared macro/include fragments rather than a standalone
 // robot definition, so a package with one robot but several helper xacro
 // files doesn't get reported as multiple robots.
+//
+// Two checks, not one: a fragment's basename doesn't always say so (e.g.
+// andino_control.urdf.xacro is a <ros2_control> tag fragment despite its
+// clean-looking name) — but real per-robot entry points live directly in a
+// `urdf/` folder, while fragments/macros/includes almost always sit one
+// level deeper (urdf/include/, urdf/macros/, urdf/gazebo/, ...). Requiring
+// the immediate parent directory to literally be "urdf" catches that case;
+// the basename keyword check catches fragments that sit at that same top
+// level without a subfolder (e.g. urdf/common_properties.urdf.xacro).
 const URDF_FRAGMENT_TOKENS = ['macro', 'common', 'materials', 'gazebo', 'sensors', 'sensor', 'include', 'transmission', 'ros2_control', 'plugin', 'imu', 'lidar', 'camera'];
 
 function detectRobotVariants(urdfFiles: Array<{ path: string }>, fallbackName: string): string[] {
   const candidates = urdfFiles.filter(f => {
-    const basename = (f.path.split('/').pop() || '').toLowerCase();
+    const parts = f.path.split('/');
+    const basename = (parts[parts.length - 1] || '').toLowerCase();
+    const parentDir = (parts[parts.length - 2] || '').toLowerCase();
+
+    if (parentDir !== 'urdf') return false;
     return !URDF_FRAGMENT_TOKENS.some(t => basename.includes(t));
   });
 
