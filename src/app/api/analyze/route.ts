@@ -723,6 +723,7 @@ export async function POST(req: NextRequest) {
           dataFlowPipeline,
           autonomyModules,
           robotVariants,
+          robotModels: agentResult?.robotModels || [],
           codebaseReview,
           navigationStack: parsedPackages
             .filter(p => /nav|slam|control|localiz/i.test(p.name))
