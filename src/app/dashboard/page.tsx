@@ -201,13 +201,29 @@ export default function DashboardPage() {
 
     setTimeout(() => {
       const dynamicProfile = createDynamicRobotProfileFromUrl(primaryUrl);
+      const repoName = primaryUrl.split('/').pop() || 'robotics_repo';
       
-      // Update & Persist Project State
-      if (activeProjectId) {
+      // Auto-Create Project if user loaded repo directly without creating a project first
+      if (!activeProjectId) {
+        const autoProjectName = `${repoName.charAt(0).toUpperCase() + repoName.slice(1)} System Fleet`;
+        const autoProj: UserProject = {
+          id: `proj_${Date.now()}`,
+          name: autoProjectName,
+          description: `Multi-repository ROS 2 system for ${repoName}`,
+          repos: [{ id: `repo_${Date.now()}`, url: primaryUrl, name: repoName }],
+          isAudited: true,
+          auditedRobotProfile: dynamicProfile
+        };
+        const nextProjects = [...projects, autoProj];
+        updateProjectsWithPersistence(nextProjects);
+        handleSelectActiveProject(autoProj.id);
+      } else {
         const nextProjects = projects.map(p => {
           if (p.id === activeProjectId) {
+            const hasRepo = p.repos.some(r => r.url === primaryUrl);
             return {
               ...p,
+              repos: hasRepo ? p.repos : [...p.repos, { id: `repo_${Date.now()}`, url: primaryUrl, name: repoName }],
               isAudited: true,
               auditedRobotProfile: dynamicProfile
             };
