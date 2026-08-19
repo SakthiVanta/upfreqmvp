@@ -4,20 +4,19 @@ import React from 'react';
 import { CheckSquare, Square, GitFork, ListChecks } from 'lucide-react';
 import { AutonomyFeatureCheck, RobotProfile } from '@/lib/robot-profile';
 
+// Evidence text is kept as a hover tooltip only — the checklist should be a
+// scannable list of checkboxes, not a wall of quoted file paths.
 function FeatureRow({ feature, indent }: { feature: AutonomyFeatureCheck; indent?: boolean }) {
   return (
-    <div className={`flex items-start gap-2.5 py-1.5 ${indent ? 'pl-7' : ''}`} title={feature.evidence}>
+    <div className={`flex items-center gap-2.5 py-1.5 ${indent ? 'pl-7' : ''}`} title={feature.evidence}>
       {feature.present ? (
-        <CheckSquare className="h-4 w-4 text-emerald-primary shrink-0 mt-0.5" />
+        <CheckSquare className="h-4 w-4 text-emerald-primary shrink-0" />
       ) : (
-        <Square className="h-4 w-4 text-sand-600 shrink-0 mt-0.5" />
+        <Square className="h-4 w-4 text-sand-600 shrink-0" />
       )}
-      <div className="min-w-0">
-        <span className={`text-xs font-bold ${feature.present ? 'text-sand-50' : 'text-sand-500'}`}>
-          {feature.label}
-        </span>
-        <p className="text-[11px] text-sand-500 mt-0.5 leading-snug">{feature.evidence}</p>
-      </div>
+      <span className={`text-xs font-bold ${feature.present ? 'text-sand-50' : 'text-sand-500'}`}>
+        {feature.label}
+      </span>
     </div>
   );
 }

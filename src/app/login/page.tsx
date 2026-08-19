@@ -51,30 +51,6 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Mode Switcher Tabs (Sign In vs Sign Up) */}
-        <div className="flex bg-sand-950 p-1 rounded-lg border border-sand-800 text-xs">
-          <button
-            onClick={() => setMode('signin')}
-            className={`flex-1 py-2 rounded-md font-semibold whitespace-nowrap transition-all cursor-pointer ${
-              mode === 'signin'
-                ? 'bg-emerald-primary text-sand-950 font-bold'
-                : 'text-sand-300 hover:text-sand-100'
-            }`}
-          >
-            Sign In
-          </button>
-          <button
-            onClick={() => setMode('signup')}
-            className={`flex-1 py-2 rounded-md font-semibold whitespace-nowrap transition-all cursor-pointer ${
-              mode === 'signup'
-                ? 'bg-emerald-primary text-sand-950 font-bold'
-                : 'text-sand-300 hover:text-sand-100'
-            }`}
-          >
-            Sign Up
-          </button>
-        </div>
-
         {isAuthenticated ? (
           <div className="bg-emerald-light border border-emerald-border p-5 rounded-lg text-xs text-emerald-text space-y-4 text-center">
             <div className="flex items-center justify-center gap-2 font-bold text-sm">
@@ -183,6 +159,17 @@ export default function LoginPage() {
                 {mode === 'signin' ? 'Sign In to Workspace' : 'Create Account & Start Auditing'}
                 <ArrowRight className="h-4 w-4" />
               </button>
+
+              <p className="text-center text-sand-500">
+                {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
+                <button
+                  type="button"
+                  onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
+                  className="font-bold text-emerald-primary hover:underline cursor-pointer"
+                >
+                  {mode === 'signin' ? 'Create one' : 'Sign in'}
+                </button>
+              </p>
             </form>
           </div>
         )}
