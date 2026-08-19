@@ -4,12 +4,12 @@ import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { GithubIcon } from '@/components/ui/github-icon';
+// import { GithubIcon } from '@/components/ui/github-icon'; — unused while GitHub OAuth is commented out below
 import { Loader2 } from 'lucide-react';
 
 export default function HomePage() {
   const router = useRouter();
-  const { isAuthenticated, loginWithGithub } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   // Projects (each representing one robot's autonomy codebase) is the one
   // real workspace — an authenticated visit to the marketing root just
@@ -60,6 +60,7 @@ export default function HomePage() {
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4 pt-2 text-xs animate-in fade-in slide-in-from-bottom-4 delay-150">
+            {/* GitHub OAuth commented out for now — not needed yet.
             <button
               onClick={() => loginWithGithub()}
               className="btn-robotics-primary py-3.5 px-8 text-sm font-bold flex items-center gap-2.5 cursor-pointer"
@@ -67,10 +68,11 @@ export default function HomePage() {
               <GithubIcon className="h-4.5 w-4.5 fill-current" />
               Connect GitHub OAuth
             </button>
+            */}
 
             <Link
               href="/login"
-              className="btn-secondary-light py-3.5 px-8 text-sm font-semibold"
+              className="btn-robotics-primary py-3.5 px-8 text-sm font-bold"
             >
               Sign In with Password
             </Link>

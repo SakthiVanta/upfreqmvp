@@ -4,15 +4,14 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
-import { GithubIcon } from '@/components/ui/github-icon';
-import { Mail, Key, ShieldCheck, ArrowRight, UserCheck, UserPlus, Building2 } from 'lucide-react';
+// import { GithubIcon } from '@/components/ui/github-icon'; — unused while GitHub OAuth is commented out below
+import { Mail, Key, ShieldCheck, ArrowRight, UserPlus, Building2 } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { loginWithGithub, loginWithCredentials, isAuthenticated, user } = useAuth();
+  const { loginWithCredentials, isAuthenticated, user } = useAuth();
 
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [authTab, setAuthTab] = useState<'github' | 'credentials'>('github');
 
   const [name, setName] = useState('Ekumen Robotics Engineer');
   const [username, setUsername] = useState('ekumen_engineer@upfreq.com');
@@ -25,10 +24,11 @@ export default function LoginPage() {
     router.push('/projects');
   };
 
-  const handleGithubClick = () => {
-    loginWithGithub();
-    router.push('/projects');
-  };
+  // GitHub OAuth commented out for now — not needed yet.
+  // const handleGithubClick = () => {
+  //   loginWithGithub();
+  //   router.push('/projects');
+  // };
 
   return (
     <div className="max-w-md mx-auto py-12 font-sans space-y-6 px-4">
@@ -92,34 +92,7 @@ export default function LoginPage() {
           </div>
         ) : (
           <div className="space-y-5">
-            {/* Auth Method Switcher Tabs (GitHub vs Credentials) */}
-            <div className="flex bg-sand-950 p-1 rounded-lg border border-sand-800 text-xs">
-              <button
-                onClick={() => setAuthTab('github')}
-                className={`flex-1 py-2 rounded-md font-semibold whitespace-nowrap transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  authTab === 'github'
-                    ? 'bg-emerald-primary text-sand-950'
-                    : 'text-sand-300 hover:text-sand-100'
-                }`}
-              >
-                <GithubIcon className={`h-3.5 w-3.5 fill-current ${authTab === 'github' ? '' : 'text-emerald-primary'}`} />
-                GitHub OAuth
-              </button>
-
-              <button
-                onClick={() => setAuthTab('credentials')}
-                className={`flex-1 py-2 rounded-md font-semibold whitespace-nowrap transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                  authTab === 'credentials'
-                    ? 'bg-emerald-primary text-sand-950'
-                    : 'text-sand-300 hover:text-sand-100'
-                }`}
-              >
-                <UserCheck className={`h-3.5 w-3.5 ${authTab === 'credentials' ? '' : 'text-emerald-primary'}`} />
-                {mode === 'signin' ? 'Email / Password' : 'New Account Details'}
-              </button>
-            </div>
-
-            {/* GitHub OAuth Flow */}
+            {/* GitHub OAuth Flow commented out for now — not needed yet.
             {authTab === 'github' && (
               <div className="space-y-4 text-xs">
                 <div className="bg-sand-950 border border-sand-800 p-4 rounded-lg text-sand-400 space-y-2">
@@ -136,82 +109,81 @@ export default function LoginPage() {
                 </button>
               </div>
             )}
+            */}
 
             {/* Email / Password Form (Sign In or Sign Up) */}
-            {authTab === 'credentials' && (
-              <form onSubmit={handleAuthSubmit} className="space-y-4 text-xs">
-                {mode === 'signup' && (
-                  <>
-                    <div>
-                      <label className="text-sand-300 font-bold mb-1 flex items-center gap-1.5">
-                        <UserPlus className="h-3.5 w-3.5 text-emerald-primary" />
-                        Full Name / Engineer Name:
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Alex Rivera"
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 focus:outline-none focus:border-emerald-primary"
-                      />
-                    </div>
+            <form onSubmit={handleAuthSubmit} className="space-y-4 text-xs">
+              {mode === 'signup' && (
+                <>
+                  <div>
+                    <label className="text-sand-300 font-bold mb-1 flex items-center gap-1.5">
+                      <UserPlus className="h-3.5 w-3.5 text-emerald-primary" />
+                      Full Name / Engineer Name:
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Alex Rivera"
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 focus:outline-none focus:border-emerald-primary"
+                    />
+                  </div>
 
-                    <div>
-                      <label className="text-sand-300 font-bold mb-1 flex items-center gap-1.5">
-                        <Building2 className="h-3.5 w-3.5 text-emerald-primary" />
-                        Organization / Lab Name:
-                      </label>
-                      <input
-                        type="text"
-                        value={organization}
-                        onChange={(e) => setOrganization(e.target.value)}
-                        placeholder="Autonomous Systems Lab"
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 focus:outline-none focus:border-emerald-primary"
-                      />
-                    </div>
-                  </>
-                )}
+                  <div>
+                    <label className="text-sand-300 font-bold mb-1 flex items-center gap-1.5">
+                      <Building2 className="h-3.5 w-3.5 text-emerald-primary" />
+                      Organization / Lab Name:
+                    </label>
+                    <input
+                      type="text"
+                      value={organization}
+                      onChange={(e) => setOrganization(e.target.value)}
+                      placeholder="Autonomous Systems Lab"
+                      className="w-full px-3.5 py-2.5 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 focus:outline-none focus:border-emerald-primary"
+                    />
+                  </div>
+                </>
+              )}
 
-                <div>
-                  <label className="text-sand-300 font-bold mb-1 flex items-center gap-1.5">
-                    <Mail className="h-3.5 w-3.5 text-emerald-primary" />
-                    Work Email Address:
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="engineer@upfreq.com"
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 focus:outline-none focus:border-emerald-primary"
-                  />
-                </div>
+              <div>
+                <label className="text-sand-300 font-bold mb-1 flex items-center gap-1.5">
+                  <Mail className="h-3.5 w-3.5 text-emerald-primary" />
+                  Work Email Address:
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="engineer@upfreq.com"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 focus:outline-none focus:border-emerald-primary"
+                />
+              </div>
 
-                <div>
-                  <label className="text-sand-300 font-bold mb-1 flex items-center gap-1.5">
-                    <Key className="h-3.5 w-3.5 text-emerald-primary" />
-                    Password:
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="w-full px-3.5 py-2.5 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 focus:outline-none focus:border-emerald-primary"
-                  />
-                </div>
+              <div>
+                <label className="text-sand-300 font-bold mb-1 flex items-center gap-1.5">
+                  <Key className="h-3.5 w-3.5 text-emerald-primary" />
+                  Password:
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 focus:outline-none focus:border-emerald-primary"
+                />
+              </div>
 
-                <button
-                  type="submit"
-                  className="btn-emerald-primary w-full py-3 text-xs flex items-center justify-center gap-2 font-bold cursor-pointer"
-                >
-                  {mode === 'signin' ? 'Sign In to Workspace' : 'Create Account & Start Auditing'}
-                  <ArrowRight className="h-4 w-4" />
-                </button>
-              </form>
-            )}
+              <button
+                type="submit"
+                className="btn-emerald-primary w-full py-3 text-xs flex items-center justify-center gap-2 font-bold cursor-pointer"
+              >
+                {mode === 'signin' ? 'Sign In to Workspace' : 'Create Account & Start Auditing'}
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </form>
           </div>
         )}
 
