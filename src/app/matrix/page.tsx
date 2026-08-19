@@ -18,7 +18,7 @@ export default function MatrixPage() {
 
           <div>
             <h1 className="text-xl font-bold text-sand-50">Gated Matrix — Authentication Required</h1>
-            <p className="text-xs text-sand-500 font-mono mt-1">
+            <p className="text-xs text-sand-500 mt-1">
               Sign in with GitHub to view synthesized robot parameters and dependency trees.
             </p>
           </div>
@@ -42,13 +42,13 @@ export default function MatrixPage() {
             <Layers className="h-5 w-5 text-emerald-primary" />
             Synthesized Robot Parameter Matrix
           </h1>
-          <p className="text-xs text-sand-500 font-mono">
+          <p className="text-xs text-sand-500">
             Full audit of physical sensors, hardware datasheets, Nav2 stack, Gazebo system plugins, and ROS package dependencies.
           </p>
         </div>
 
         {selectedRobot && (
-          <div className="flex items-center gap-2 font-mono text-xs">
+          <div className="flex items-center gap-2 text-xs">
             <span className="text-xs font-bold text-emerald-text bg-emerald-light border border-emerald-border px-3 py-1 rounded-lg">
               Active Repository: {selectedRobot.name}
             </span>
@@ -76,7 +76,7 @@ export default function MatrixPage() {
           </div>
           <div className="max-w-md mx-auto space-y-2">
             <h2 className="text-lg font-bold text-sand-50">Matrix Empty — No Repository Loaded</h2>
-            <p className="text-xs text-sand-500 font-mono leading-relaxed">
+            <p className="text-xs text-sand-500 leading-relaxed">
               Submit your robotics GitHub repository URL on the Dashboard, or load one from your Robot Library, to inspect its synthesized parameter matrix and package dependencies.
             </p>
           </div>

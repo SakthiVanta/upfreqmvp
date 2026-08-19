@@ -6,34 +6,64 @@ html {
 
 @theme {
   /* ---------------------------------------------------------------------
-   * Sand neutral scale — warm light stone/parchment, never stark white.
-   * 50-600 are the "text" stops (dark, for legibility on light surfaces);
-   * 700-950 are the "surface" stops (light, for page/card/chrome bg's).
+   * Sand neutral scale — now a true, uninflected grayscale (no warm tint):
+   * black-and-white theme. 50-600 are the "text" stops (dark, for
+   * legibility on light surfaces); 700-950 are the "surface" stops
+   * (light, for page/card/chrome bg's). Naming kept as "sand" so every
+   * existing component className stays valid — only the values changed.
    * ------------------------------------------------------------------- */
-  --color-sand-50: #1c1712;
-  --color-sand-100: #2b2420;
-  --color-sand-200: #423a30;
-  --color-sand-300: #5c5040;
-  --color-sand-400: #7a6c58;
-  --color-sand-500: #93826c;
-  --color-sand-600: #a89880;
-  --color-sand-700: #c2b5a0;
-  --color-sand-800: #ddd2bc;
-  --color-sand-850: #e6ddc9;
-  --color-sand-900: #efe8d8;
-  --color-sand-925: #f4efe2;
-  --color-sand-950: #faf7f0;
+  --color-sand-50: #0a0a0a;
+  --color-sand-100: #171717;
+  --color-sand-200: #262626;
+  --color-sand-300: #404040;
+  --color-sand-400: #595959;
+  --color-sand-500: #737373;
+  --color-sand-600: #8c8c8c;
+  --color-sand-700: #b8b8b8;
+  --color-sand-800: #dcdcdc;
+  --color-sand-850: #e6e6e6;
+  --color-sand-900: #eeeeee;
+  --color-sand-925: #f4f4f4;
+  --color-sand-950: #ffffff;
 
-  /* Accent text/icon usage of emerald-300/400 was authored for "bright
-   * accent on dark chrome" — darkened here so the same classes read
-   * correctly as "accent on light chrome" instead. Deliberately dark chip
-   * backgrounds (bg-emerald-950/900/800) are rare exceptions handled with
-   * untouched emerald-100/200 text at their call sites, not here. */
-  --color-emerald-300: #059669;
-  --color-emerald-400: #047857;
+  /* Stock Tailwind emerald-* and amber-* utility classes are used directly
+   * (not just our custom .text-emerald-primary/etc. classes) in a handful
+   * of badges and banners. Overriding every stop here — same trick already
+   * used for 300/400 — retints all of them to grayscale app-wide from one
+   * place, no per-component edits needed. Amber (warning/estimated, not an
+   * error) goes grayscale too; rose/red is intentionally left untouched as
+   * the one reserved color, for destructive actions and real errors only. */
+  --color-emerald-50: #fafafa;
+  --color-emerald-100: #f0f0f0;
+  --color-emerald-200: #dcdcdc;
+  --color-emerald-300: #b0b0b0;
+  --color-emerald-400: #4d4d4d;
+  --color-emerald-500: #262626;
+  --color-emerald-600: #1a1a1a;
+  --color-emerald-700: #141414;
+  --color-emerald-800: #0d0d0d;
+  --color-emerald-850: #0a0a0a;
+  --color-emerald-900: #080808;
+  --color-emerald-950: #000000;
 
+  --color-amber-50: #fafafa;
+  --color-amber-100: #f0f0f0;
+  --color-amber-200: #d4d4d4;
+  --color-amber-300: #b0b0b0;
+  --color-amber-400: #8c8c8c;
+  --color-amber-500: #737373;
+  --color-amber-600: #525252;
+  --color-amber-700: #404040;
+  --color-amber-800: #262626;
+  --color-amber-900: #171717;
+  --color-amber-950: #0a0a0a;
+
+  /* Professional standard sans throughout — including headings, which
+   * previously used a separate display face. Monospace is kept available
+   * (still imported in layout.tsx) but reserved for genuinely code-like
+   * content: file paths, launch commands, topic names — not UI chrome. */
   --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
-  --font-display: var(--font-display-family), var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-inter), system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 }
 
@@ -51,12 +81,15 @@ html {
     --text-muted: var(--color-sand-400);
     --text-dim: var(--color-sand-600);
 
-    --brand-emerald: #10b981;
-    --brand-emerald-hover: #047857;
-    --brand-emerald-light: #047857;
-    --brand-emerald-chip-bg: rgba(16, 185, 129, 0.10);
-    --brand-emerald-chip-border: rgba(16, 185, 129, 0.35);
-    --brand-emerald-chip-text: #047857;
+    /* "Emerald" naming kept for every existing .text-emerald-primary /
+     * .btn-emerald-primary / etc. call site — only the color is now black,
+     * not green. This is the single accent color in the app. */
+    --brand-emerald: #141414;
+    --brand-emerald-hover: #000000;
+    --brand-emerald-light: #141414;
+    --brand-emerald-chip-bg: rgba(0, 0, 0, 0.06);
+    --brand-emerald-chip-border: rgba(0, 0, 0, 0.18);
+    --brand-emerald-chip-text: #141414;
 
     /* Backwards-compatible aliases kept for any legacy references */
     --brand-indigo: var(--brand-emerald);
@@ -65,17 +98,13 @@ html {
     --brand-indigo-border: var(--brand-emerald-chip-border);
     --brand-indigo-text: var(--brand-emerald-chip-text);
 
-    --shadow-color: 28 20% 8%;
+    --shadow-color: 0 0% 0%;
   }
 
   body {
     background-color: var(--bg-main);
     color: var(--text-primary);
     font-family: var(--font-sans);
-    background-image:
-      radial-gradient(ellipse 900px 500px at 15% -10%, rgba(16, 185, 129, 0.05), transparent 60%),
-      radial-gradient(ellipse 700px 500px at 100% 0%, rgba(120, 100, 70, 0.04), transparent 60%);
-    background-attachment: fixed;
   }
 
   h1, h2, h3 {
@@ -84,7 +113,7 @@ html {
   }
 
   ::selection {
-    background-color: rgba(16, 185, 129, 0.22);
+    background-color: rgba(0, 0, 0, 0.12);
     color: var(--color-sand-50);
   }
 
@@ -134,10 +163,10 @@ html {
   justify-content: center;
   gap: 0.5rem;
   background-color: var(--brand-emerald);
-  color: var(--color-sand-50);
+  color: var(--color-sand-950);
   font-weight: 700;
   border-radius: 0.625rem;
-  box-shadow: 0 1px 2px 0 rgba(28, 23, 18, 0.08), 0 0 0 1px rgba(16, 185, 129, 0.15) inset;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -145,7 +174,7 @@ html {
 .btn-emerald-primary:hover {
   background-color: var(--brand-emerald-hover);
   transform: translateY(-1px);
-  box-shadow: 0 8px 20px -6px rgba(16, 185, 129, 0.45);
+  box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.35);
 }
 
 .btn-robotics-primary:active,
@@ -231,7 +260,7 @@ html {
   justify-content: center;
   gap: 0.5rem;
   background-color: var(--brand-emerald);
-  color: var(--color-sand-50);
+  color: var(--color-sand-950);
   font-weight: 700;
   border-radius: 0.625rem;
   transition: all 0.2s ease;

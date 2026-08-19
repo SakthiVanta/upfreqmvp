@@ -25,7 +25,7 @@ export default function HomePage() {
 
   if (isAuthenticated) {
     return (
-      <div className="flex items-center justify-center py-24 text-sand-500 font-mono text-xs gap-2">
+      <div className="flex items-center justify-center py-24 text-sand-500 text-xs gap-2">
         <Loader2 className="h-4 w-4 animate-spin" />
         Opening Robot Projects...
       </div>
@@ -39,20 +39,20 @@ export default function HomePage() {
       {/* Marketing Single-Page Header */}
       <header className="sticky top-0 z-40 bg-sand-950/90 backdrop-blur-md border-b border-sand-800 px-6 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-emerald-primary text-sand-950 flex items-center justify-center font-mono font-bold text-sm">
+          <div className="h-8 w-8 rounded-lg bg-emerald-primary text-sand-950 flex items-center justify-center font-bold text-sm">
             UF
           </div>
           <span className="font-display font-bold text-base text-sand-50 tracking-tight">UpFreq Robotics</span>
         </div>
 
-        <nav className="hidden md:flex items-center gap-8 font-mono text-xs font-semibold text-sand-400">
+        <nav className="hidden md:flex items-center gap-8 text-xs font-semibold text-sand-400">
           <a href="#about" className="hover:text-emerald-primary transition-colors">Platform Purpose</a>
           <a href="#how-to-use" className="hover:text-emerald-primary transition-colors">How To Use</a>
           <a href="#showcase" className="hover:text-emerald-primary transition-colors">Live Interactive Showcase</a>
           <a href="#takeaways" className="hover:text-emerald-primary transition-colors">Key Takeaways</a>
         </nav>
 
-        <div className="flex items-center gap-3 font-mono text-xs">
+        <div className="flex items-center gap-3 text-xs">
           <Link href="/login" className="btn-robotics-primary py-2 px-5 text-xs font-bold">
             Sign In to App
           </Link>
@@ -70,11 +70,11 @@ export default function HomePage() {
           </span>
         </h1>
 
-        <p className="text-base sm:text-lg text-sand-400 max-w-3xl mx-auto leading-relaxed font-mono animate-in fade-in slide-in-from-bottom-4 delay-75">
+        <p className="text-base sm:text-lg text-sand-400 max-w-3xl mx-auto leading-relaxed animate-in fade-in slide-in-from-bottom-4 delay-75">
           Connect your robotics GitHub repository to perform real-time ROS/ROS 2 tree validation, parse URDF sensor origins, classify Nav2 &amp; SLAM autonomy modules from real codebase evidence, and render interactive 3D parametric models.
         </p>
 
-        <div className="flex flex-wrap items-center justify-center gap-4 pt-2 font-mono text-xs animate-in fade-in slide-in-from-bottom-4 delay-150">
+        <div className="flex flex-wrap items-center justify-center gap-4 pt-2 text-xs animate-in fade-in slide-in-from-bottom-4 delay-150">
           <button
             onClick={() => loginWithGithub()}
             className="btn-robotics-primary py-3.5 px-8 text-sm font-bold flex items-center gap-2.5 cursor-pointer"
@@ -92,7 +92,7 @@ export default function HomePage() {
         </div>
 
         {/* Clear UX Summary Ribbon */}
-        <div id="about" className="pt-8 grid grid-cols-1 md:grid-cols-3 gap-6 text-left font-mono text-xs">
+        <div id="about" className="pt-8 grid grid-cols-1 md:grid-cols-3 gap-6 text-left text-xs">
           {[
             { icon: Compass, title: '1. What Is This Application?', body: "An enterprise platform engineered for robotics CTOs & engineers to audit GitHub repositories, extract physical sensor origins, and classify Nav2 & SLAM autonomy modules from real codebase evidence." },
             { icon: HelpCircle, title: '2. How Do You Use It?', body: "Input your target GitHub repository URL, authorize sign-in, and stream real-time ROS validation logs as URDF transforms and packages are parsed." },
@@ -110,7 +110,7 @@ export default function HomePage() {
       </section>
 
       {/* 3-Step Quick Start Guide Bar */}
-      <section id="how-to-use" className="max-w-6xl mx-auto px-4 space-y-6 font-mono text-xs">
+      <section id="how-to-use" className="max-w-6xl mx-auto px-4 space-y-6 text-xs">
         <div className="text-center space-y-2">
           <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-primary">
             Quick User Workflow
@@ -140,7 +140,7 @@ export default function HomePage() {
       {/* Interactive Live Product Showcase Section */}
       <section id="showcase" className="max-w-6xl mx-auto px-4 space-y-8">
         <div className="text-center space-y-3">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-primary font-mono">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-primary">
             Interactive Product Showcase
           </h2>
           <h3 className="text-3xl font-display font-extrabold text-sand-50 tracking-tight">
@@ -148,12 +148,12 @@ export default function HomePage() {
           </h3>
         </div>
 
-        <p className="text-center text-[11px] text-sand-600 font-mono -mt-4">
+        <p className="text-center text-[11px] text-sand-600 -mt-4">
           Real screenshots from a live audit of <code className="bg-sand-800 px-1 py-0.5 rounded text-sand-300">Ekumen-OS/andino</code> — not mockups.
         </p>
 
         {/* Showcase Switcher Pills */}
-        <div className="flex justify-start sm:justify-center gap-2 font-mono text-xs overflow-x-auto pb-1">
+        <div className="flex justify-start sm:justify-center gap-2 text-xs overflow-x-auto pb-1">
           {[
             { id: '3d' as const, label: '1. 3D Parametric Studio', icon: Box },
             { id: 'pipeline' as const, label: '2. Data-Flow Pipeline Diagram', icon: Workflow },
@@ -178,7 +178,7 @@ export default function HomePage() {
         {/* Tab 1 Showcase: 3D Studio */}
         {activeShowcaseTab === '3d' && (
           <div className="minimal-card p-3 sm:p-4 space-y-3 animate-in fade-in">
-            <div className="flex items-center justify-between px-2 pt-1 font-mono flex-wrap gap-2">
+            <div className="flex items-center justify-between px-2 pt-1 flex-wrap gap-2">
               <span className="text-xs font-bold text-sand-100">3D Parametric Studio — real sensor origins, live kinematic sliders</span>
               <span className="text-xs text-emerald-primary font-bold bg-emerald-light px-3 py-1 rounded-md border border-emerald-border shrink-0">
                 Andino 3D model, live-rendered
@@ -192,7 +192,7 @@ export default function HomePage() {
         {/* Tab 2 Showcase: Data-Flow Pipeline Diagram */}
         {activeShowcaseTab === 'pipeline' && (
           <div className="minimal-card p-3 sm:p-4 space-y-3 animate-in fade-in">
-            <div className="flex items-center justify-between px-2 pt-1 font-mono flex-wrap gap-2">
+            <div className="flex items-center justify-between px-2 pt-1 flex-wrap gap-2">
               <span className="text-xs font-bold text-sand-100">Interactive node-graph — real sensor→driver→autonomy→control edges</span>
               <span className="text-xs text-emerald-primary font-bold bg-emerald-light px-3 py-1 rounded-md border border-emerald-border shrink-0">
                 Built with React Flow
@@ -206,7 +206,7 @@ export default function HomePage() {
         {/* Tab 3 Showcase: Parameter Matrix */}
         {activeShowcaseTab === 'matrix' && (
           <div className="minimal-card p-3 sm:p-4 space-y-3 animate-in fade-in">
-            <div className="flex items-center justify-between px-2 pt-1 font-mono flex-wrap gap-2">
+            <div className="flex items-center justify-between px-2 pt-1 flex-wrap gap-2">
               <span className="text-xs font-bold text-sand-100">Synthesized parameter matrix — sensors, Nav2/SLAM, Gazebo plugins, topics</span>
               <span className="text-xs text-emerald-primary font-bold bg-emerald-light px-3 py-1 rounded-md border border-emerald-border shrink-0">
                 Parsed from real URDF
@@ -220,7 +220,7 @@ export default function HomePage() {
         {/* Tab 4 Showcase: Autonomy Module Evidence */}
         {activeShowcaseTab === 'autonomy' && (
           <div className="minimal-card p-3 sm:p-4 space-y-3 animate-in fade-in">
-            <div className="flex items-center justify-between px-2 pt-1 font-mono flex-wrap gap-2">
+            <div className="flex items-center justify-between px-2 pt-1 flex-wrap gap-2">
               <span className="text-xs font-bold text-sand-100">Evidence-based module classification — implemented vs. missing, not guessed</span>
               <span className="text-xs text-emerald-primary font-bold bg-emerald-light px-3 py-1 rounded-md border border-emerald-border shrink-0">
                 From real package.xml + launch files
@@ -235,7 +235,7 @@ export default function HomePage() {
       {/* Key Takeaways Section */}
       <section id="takeaways" className="max-w-4xl mx-auto px-4">
         <div className="minimal-card p-8 text-center space-y-6">
-          <div className="inline-flex items-center gap-2 bg-emerald-950 border border-emerald-800 px-3.5 py-1 rounded-full text-xs font-mono text-emerald-100 font-bold">
+          <div className="inline-flex items-center gap-2 bg-emerald-950 border border-emerald-800 px-3.5 py-1 rounded-full text-xs text-emerald-100 font-bold">
             KEY PLATFORM TAKEAWAYS
           </div>
 
@@ -243,11 +243,11 @@ export default function HomePage() {
             Automate Robotics Parameter Engineering Today
           </h3>
 
-          <p className="text-xs text-sand-400 font-mono max-w-xl mx-auto leading-relaxed">
+          <p className="text-xs text-sand-400 max-w-xl mx-auto leading-relaxed">
             Sign in with your GitHub OAuth account or organization credentials to unlock full agentic analysis, evidence-based Nav2/SLAM classification, and the 3D parametric studio.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-4 font-mono text-xs">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
             <button
               onClick={() => loginWithGithub()}
               className="btn-robotics-primary py-3.5 px-8 text-sm font-bold flex items-center gap-2.5 cursor-pointer"

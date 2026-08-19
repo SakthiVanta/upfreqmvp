@@ -36,14 +36,14 @@ export default function LoginPage() {
       <div className="minimal-card p-8 space-y-6">
         <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center gap-2">
-            <div className="h-10 w-10 rounded-xl bg-emerald-primary text-sand-950 flex items-center justify-center font-mono font-bold text-base shadow-xs">
+            <div className="h-10 w-10 rounded-xl bg-emerald-primary text-sand-950 flex items-center justify-center font-bold text-base shadow-xs">
               UF
             </div>
           </Link>
           <h1 className="text-xl font-display font-extrabold text-sand-50 tracking-tight">
             {mode === 'signin' ? 'Sign In to UpFreq Robotics' : 'Create UpFreq Robotics Account'}
           </h1>
-          <p className="text-xs text-sand-500 font-mono">
+          <p className="text-xs text-sand-500">
             {mode === 'signin'
               ? 'Access your agentic workspace & ROS 2 parameter engine'
               : 'Register your robotics team to audit GitHub packages & ROS 2 URDFs'
@@ -52,7 +52,7 @@ export default function LoginPage() {
         </div>
 
         {/* Mode Switcher Tabs (Sign In vs Sign Up) */}
-        <div className="flex bg-sand-950 p-1 rounded-lg border border-sand-800 font-mono text-xs">
+        <div className="flex bg-sand-950 p-1 rounded-lg border border-sand-800 text-xs">
           <button
             onClick={() => setMode('signin')}
             className={`flex-1 py-2 rounded-md font-semibold whitespace-nowrap transition-all cursor-pointer ${
@@ -76,7 +76,7 @@ export default function LoginPage() {
         </div>
 
         {isAuthenticated ? (
-          <div className="bg-emerald-light border border-emerald-border p-5 rounded-lg text-xs font-mono text-emerald-text space-y-4 text-center">
+          <div className="bg-emerald-light border border-emerald-border p-5 rounded-lg text-xs text-emerald-text space-y-4 text-center">
             <div className="flex items-center justify-center gap-2 font-bold text-sm">
               <ShieldCheck className="h-5 w-5 text-emerald-primary" />
               AUTHENTICATED AS {user?.username}
@@ -93,7 +93,7 @@ export default function LoginPage() {
         ) : (
           <div className="space-y-5">
             {/* Auth Method Switcher Tabs (GitHub vs Credentials) */}
-            <div className="flex bg-sand-950 p-1 rounded-lg border border-sand-800 font-mono text-xs">
+            <div className="flex bg-sand-950 p-1 rounded-lg border border-sand-800 text-xs">
               <button
                 onClick={() => setAuthTab('github')}
                 className={`flex-1 py-2 rounded-md font-semibold whitespace-nowrap transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
@@ -121,7 +121,7 @@ export default function LoginPage() {
 
             {/* GitHub OAuth Flow */}
             {authTab === 'github' && (
-              <div className="space-y-4 font-mono text-xs">
+              <div className="space-y-4 text-xs">
                 <div className="bg-sand-950 border border-sand-800 p-4 rounded-lg text-sand-400 space-y-2">
                   <span className="font-bold text-sand-100 block">GitHub Organization Authentication:</span>
                   <p className="leading-relaxed">Connect your GitHub account to directly audit public or private ROS 2 repositories without manual code uploads.</p>
@@ -139,7 +139,7 @@ export default function LoginPage() {
 
             {/* Email / Password Form (Sign In or Sign Up) */}
             {authTab === 'credentials' && (
-              <form onSubmit={handleAuthSubmit} className="space-y-4 font-mono text-xs">
+              <form onSubmit={handleAuthSubmit} className="space-y-4 text-xs">
                 {mode === 'signup' && (
                   <>
                     <div>

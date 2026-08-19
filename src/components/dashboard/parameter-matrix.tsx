@@ -41,12 +41,12 @@ export function ParameterMatrix({
       <div className="border-b border-sand-800 bg-sand-925/60 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <GitFork className="h-4 w-4 text-emerald-primary" />
-          <span className="text-xs font-bold uppercase tracking-wider text-sand-100 font-mono">
+          <span className="text-xs font-bold uppercase tracking-wider text-sand-100">
             Active Robot Model Catalog:
           </span>
         </div>
 
-        <div className="flex items-center gap-2 font-mono">
+        <div className="flex items-center gap-2">
           {selectedRobot.usedAgenticAnalysis ? (
             <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-light text-emerald-text border border-emerald-border flex items-center gap-1.5" title="Real Gemini agentic tool-use analysis produced this data">
               <Bot className="h-3.5 w-3.5" />
@@ -65,7 +65,7 @@ export function ParameterMatrix({
       </div>
 
       {/* Matrix Tabs Bar */}
-      <div className="border-b border-sand-800 bg-sand-950 px-4 py-3 flex flex-wrap items-center justify-between gap-3 font-mono">
+      <div className="border-b border-sand-800 bg-sand-950 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <div className="p-1 rounded bg-emerald-light border border-emerald-border text-emerald-primary">
             <Layers className="h-4 w-4" />
@@ -75,7 +75,7 @@ export function ParameterMatrix({
               Synthesized Intelligence Matrix — {selectedRobot.name}
             </h2>
             <p className="text-[11px] text-sand-500">
-              Repo: {selectedRobot.repoUrl} ({selectedRobot.rosVersion})
+              Repo: <span className="font-mono">{selectedRobot.repoUrl}</span> ({selectedRobot.rosVersion})
             </p>
           </div>
         </div>
@@ -100,7 +100,7 @@ export function ParameterMatrix({
       </div>
 
       {/* Dynamic Diagnostic Notice */}
-      <div className="bg-amber-50 border-b border-amber-200 p-3.5 px-4 flex items-start gap-3 text-xs text-amber-900 font-mono">
+      <div className="bg-amber-50 border-b border-amber-200 p-3.5 px-4 flex items-start gap-3 text-xs text-amber-900">
         <AlertTriangle className="h-4 w-4 text-amber-700 shrink-0 mt-0.5" />
         <div>
           <span className="font-bold">AGENTIC DIAGNOSTIC NOTICE:</span>
@@ -167,7 +167,7 @@ export function ParameterMatrix({
       {activeTab === 'packages' && (
         <div className="p-4 sm:p-6">
           {selectedRobot.packages.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               {selectedRobot.packages.map((pkg, idx) => (
                 <div key={idx} className="minimal-card p-4 space-y-2.5">
                   <div className="flex items-center justify-between border-b border-sand-800 pb-2">
@@ -178,7 +178,7 @@ export function ParameterMatrix({
                   </div>
                   <p className="text-sand-400 leading-relaxed">{pkg.description}</p>
                   <div className="flex items-center justify-between text-[11px] pt-1">
-                    <span className="text-sand-600">{pkg.folderPath}</span>
+                    <span className="text-sand-600 font-mono">{pkg.folderPath}</span>
                     <span className="bg-sand-800 text-sand-300 px-2 py-0.5 rounded border border-sand-700">{pkg.buildType}</span>
                   </div>
                   {pkg.dependencies.length > 0 && (
@@ -188,7 +188,7 @@ export function ParameterMatrix({
                       </span>
                       <div className="flex flex-wrap gap-1">
                         {pkg.dependencies.map((dep, dIdx) => (
-                          <span key={dIdx} className="text-[10px] bg-sand-950 text-sand-300 px-1.5 py-0.5 rounded border border-sand-800">
+                          <span key={dIdx} className="text-[10px] bg-sand-950 text-sand-300 px-1.5 py-0.5 rounded border border-sand-800 font-mono">
                             {dep}
                           </span>
                         ))}
@@ -199,7 +199,7 @@ export function ParameterMatrix({
               ))}
             </div>
           ) : (
-            <div className="p-6 rounded-xl border border-dashed border-sand-800 text-center text-sand-500 font-mono text-xs">
+            <div className="p-6 rounded-xl border border-dashed border-sand-800 text-center text-sand-500 text-xs">
               No package.xml manifests were discovered in this repository.
             </div>
           )}
@@ -208,21 +208,21 @@ export function ParameterMatrix({
 
       {/* Tab 3: Nav2 & SLAM Navigation Stack */}
       {activeTab === 'navigation' && (
-        <div className="p-4 sm:p-6 space-y-6 font-mono text-xs">
+        <div className="p-4 sm:p-6 space-y-6 text-xs">
           {selectedRobot.navigationStack.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {selectedRobot.navigationStack.map((nav, idx) => (
                 <div key={idx} className="minimal-card p-5 space-y-3">
                   <div className="flex items-center justify-between border-b border-sand-800 pb-2">
                     <span className="font-bold text-sand-50 text-sm text-emerald-primary">{nav.module}</span>
-                    <span className="text-[10px] font-bold text-sand-300 bg-sand-800 px-2 py-0.5 rounded border border-sand-700">
+                    <span className="text-[10px] font-bold text-sand-300 bg-sand-800 px-2 py-0.5 rounded border border-sand-700 font-mono">
                       {nav.packageProvider}
                     </span>
                   </div>
 
                   <p className="text-xs text-sand-400 leading-relaxed">{nav.description}</p>
 
-                  <div className="space-y-1.5 pt-2 text-[11px]">
+                  <div className="space-y-1.5 pt-2 text-[11px] font-mono">
                     <div className="flex justify-between py-1 border-b border-sand-800">
                       <span className="text-sand-500">Launch File:</span>
                       <span className="text-sand-100 font-semibold">{nav.launchFile}</span>
@@ -257,7 +257,7 @@ export function ParameterMatrix({
             </div>
 
             {selectedRobot.launchFiles.length > 0 ? (
-              <div className="space-y-2 text-[11px]">
+              <div className="space-y-2 text-[11px] font-mono">
                 {selectedRobot.launchFiles.slice(0, 6).map((file, idx) => {
                   const parts = file.split('/');
                   const pkg = parts[0] || selectedRobot.id;
@@ -356,11 +356,11 @@ export function ParameterMatrix({
 
       {/* Tab 6: Launch Architecture */}
       {activeTab === 'launch' && (
-        <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-6 font-mono text-xs">
+        <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
           <div className="minimal-card p-5">
             <h3 className="font-bold text-sand-50 text-sm mb-3">ROS 2 Launch Registry ({selectedRobot.launchFiles.length})</h3>
             {selectedRobot.launchFiles.length > 0 ? (
-              <ul className="space-y-2 text-sand-300 max-h-96 overflow-y-auto">
+              <ul className="space-y-2 text-sand-300 max-h-96 overflow-y-auto font-mono">
                 {selectedRobot.launchFiles.map((file, idx) => (
                   <li key={idx} className="flex items-center justify-between p-2 rounded bg-sand-950 border border-sand-800 gap-2">
                     <span className="text-emerald-primary font-semibold truncate">{file}</span>
@@ -407,7 +407,7 @@ export function ParameterMatrix({
             <div>
               <h3 className="font-bold text-sand-50 text-sm mb-3">YAML Config Files ({selectedRobot.yamlConfigFiles.length})</h3>
               {selectedRobot.yamlConfigFiles.length > 0 ? (
-                <ul className="space-y-1.5 text-sand-300 max-h-40 overflow-y-auto">
+                <ul className="space-y-1.5 text-sand-300 max-h-40 overflow-y-auto font-mono">
                   {selectedRobot.yamlConfigFiles.slice(0, 20).map((file, idx) => (
                     <li key={idx} className="p-1.5 rounded bg-sand-950 border border-sand-800 truncate" title={file}>{file}</li>
                   ))}
