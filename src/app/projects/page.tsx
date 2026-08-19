@@ -1,16 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   FolderPlus, Layers, Plus, Trash2, GitFork, X, Globe, Sparkles,
-  Loader2, ChevronDown, ChevronUp, Box, Cpu, AlertTriangle, Bot
+  Loader2, AlertTriangle, Bot, Eye, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { RobotProfile, createDynamicRobotProfileFromUrl } from '@/lib/robot-profile';
 import { saveRobotToLibrary } from '@/lib/robot-library';
 import { useAuth } from '@/lib/auth-context';
 import { StreamHud } from '@/components/agent/stream-hud';
-import { RobotDetailExplorer } from '@/components/dashboard/robot-detail-explorer';
 import { CodebaseReview } from '@/components/dashboard/codebase-review';
 
 interface ProjectRepo {
@@ -28,11 +26,13 @@ interface UserProject {
   auditedRobotProfile?: RobotProfile;
 }
 
+const PAGE_SIZE = 8;
+
 export default function ProjectsPage() {
-  const router = useRouter();
   const { selectedRobot, setSelectedRobot, setIngestedRepoUrl } = useAuth();
 
   const [projects, setProjects] = useState<UserProject[]>([]);
+  const [page, setPage] = useState(1);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [nameInput, setNameInput] = useState('');
@@ -45,13 +45,15 @@ export default function ProjectsPage() {
 
   // Only one audit runs at a time; tracked by which project it belongs to.
   // lastAuditProjectId stays set after completion so the resulting logs/error
-  // are attributed to the right card even once auditingProjectId clears.
+  // are attributed to the right project even once auditingProjectId clears.
   const [auditingProjectId, setAuditingProjectId] = useState<string | null>(null);
   const [lastAuditProjectId, setLastAuditProjectId] = useState<string | null>(null);
   const [streamLogs, setStreamLogs] = useState<string[]>([]);
   const [streamError, setStreamError] = useState<string | null>(null);
 
-  const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
+  // Project detail is a modal now, not an inline accordion — this holds
+  // which project's modal is open.
+  const [viewingProjectId, setViewingProjectId] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('upfreq_user_projects');
@@ -84,7 +86,7 @@ export default function ProjectsPage() {
       };
       const next = [newProj, ...prev];
       localStorage.setItem('upfreq_user_projects', JSON.stringify(next));
-      setExpandedProjectId(newProj.id);
+      setViewingProjectId(newProj.id);
       return next;
     });
   }, [selectedRobot]);
@@ -106,10 +108,11 @@ export default function ProjectsPage() {
       isAudited: false
     };
 
-    saveProjects([...projects, newProj]);
+    saveProjects([newProj, ...projects]);
     setNameInput('');
     setDescInput('');
     setShowCreateModal(false);
+    setPage(1);
   };
 
   const handleDeleteProject = (id: string) => {
@@ -120,7 +123,7 @@ export default function ProjectsPage() {
     if (activeId === id) {
       localStorage.removeItem('upfreq_active_project_id');
     }
-    if (expandedProjectId === id) setExpandedProjectId(null);
+    if (viewingProjectId === id) setViewingProjectId(null);
   };
 
   const handleAddRepo = (projectId: string) => {
@@ -157,7 +160,7 @@ export default function ProjectsPage() {
   };
 
   // Run the real agentic /api/analyze audit for a single project (robot),
-  // streaming live logs into that project's card and writing the resulting
+  // streaming live logs into its modal and writing the resulting
   // RobotProfile back onto it once complete.
   const handleRunAudit = async (project: UserProject) => {
     if (project.repos.length === 0 || auditingProjectId) return;
@@ -166,7 +169,7 @@ export default function ProjectsPage() {
     setLastAuditProjectId(project.id);
     setStreamLogs([]);
     setStreamError(null);
-    setExpandedProjectId(project.id);
+    setViewingProjectId(project.id);
 
     const targetUrls = project.repos.map(r => r.url);
     const primaryUrl = targetUrls[0];
@@ -251,16 +254,21 @@ export default function ProjectsPage() {
       isAudited: false
     };
 
-    const nextProjects = [...projects, newProj];
+    const nextProjects = [newProj, ...projects];
     saveProjects(nextProjects);
     setQuickUrl('');
+    setPage(1);
     handleRunAudit(newProj);
   };
 
-  const goToRobot = (profile: RobotProfile, destination: '/matrix' | '/studio') => {
-    setSelectedRobot(profile);
-    router.push(destination);
-  };
+  const totalPages = Math.max(1, Math.ceil(projects.length / PAGE_SIZE));
+  const clampedPage = Math.min(page, totalPages);
+  const paginatedProjects = useMemo(
+    () => projects.slice((clampedPage - 1) * PAGE_SIZE, clampedPage * PAGE_SIZE),
+    [projects, clampedPage]
+  );
+
+  const viewingProject = projects.find(p => p.id === viewingProjectId) || null;
 
   return (
     <div className="space-y-8 font-sans pb-16">
@@ -276,7 +284,7 @@ export default function ProjectsPage() {
               Robot Projects
             </h1>
             <p className="text-xs text-sand-500 font-mono mt-0.5">
-              Each project is one robot's autonomy codebase — attach its GitHub repositories, then run the AI audit to synthesize sensors, chassis, and autonomy modules.
+              Each project is one robot's autonomy codebase — attach its GitHub repositories, then run the AI audit to get its data.
             </p>
           </div>
         </div>
@@ -321,17 +329,7 @@ export default function ProjectsPage() {
 
       {/* Create Project Modal */}
       {showCreateModal && (
-        <div className="minimal-card p-6 space-y-4 animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-center justify-between border-b border-sand-800 pb-3">
-            <h3 className="text-sm font-bold text-sand-50 font-mono flex items-center gap-2">
-              <FolderPlus className="h-4 w-4 text-emerald-primary" />
-              CREATE NEW ROBOT PROJECT
-            </h3>
-            <button onClick={() => setShowCreateModal(false)} className="text-sand-500 hover:text-sand-50 font-mono text-xs cursor-pointer">
-              ✕ Close
-            </button>
-          </div>
-
+        <ModalShell onClose={() => setShowCreateModal(false)} title="Create New Robot Project" icon={FolderPlus}>
           <form onSubmit={handleCreateProject} className="space-y-4 font-mono text-xs">
             <div>
               <label className="block text-sand-300 font-bold mb-1">Robot / Project Name:</label>
@@ -372,167 +370,107 @@ export default function ProjectsPage() {
               </button>
             </div>
           </form>
-        </div>
+        </ModalShell>
       )}
 
-      {/* Projects Grid */}
+      {/* Projects Table */}
       {projects.length > 0 ? (
-        <div className="grid grid-cols-1 gap-6">
-          {projects.map((p) => {
-            const isAuditingThis = auditingProjectId === p.id;
-            const isExpanded = expandedProjectId === p.id;
-
-            return (
-              <div key={p.id} className="minimal-card p-6 space-y-5">
-
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sand-800 pb-4">
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h2 className="text-lg font-display font-extrabold text-sand-50">
-                        {p.name}
-                      </h2>
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-light text-emerald-text font-mono text-[11px] font-bold border border-emerald-border">
-                        {p.repos.length} REPO{p.repos.length === 1 ? '' : 'S'}
-                      </span>
-                      {p.isAudited && p.auditedRobotProfile && (
-                        p.auditedRobotProfile.usedAgenticAnalysis ? (
-                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-light text-emerald-text font-mono text-[11px] font-bold border border-emerald-border flex items-center gap-1">
-                            <Bot className="h-3 w-3" /> Gemini Agent
+        <div className="minimal-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left font-mono text-xs border-collapse">
+              <thead>
+                <tr className="bg-sand-925 border-b border-sand-800 text-sand-300 font-semibold">
+                  <th className="py-3 px-4">Project (Robot)</th>
+                  <th className="py-3 px-4">Repos</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Robots Found</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-sand-800">
+                {paginatedProjects.map((p) => {
+                  const isAuditingThis = auditingProjectId === p.id;
+                  return (
+                    <tr key={p.id} className="hover:bg-sand-925/60 transition-colors cursor-pointer" onClick={() => setViewingProjectId(p.id)}>
+                      <td className="py-3 px-4 max-w-72">
+                        <div className="font-bold text-sand-50 truncate">{p.name}</div>
+                        <div className="text-[11px] text-sand-500 truncate">{p.description}</div>
+                      </td>
+                      <td className="py-3 px-4 text-sand-300">
+                        {p.repos.length}
+                      </td>
+                      <td className="py-3 px-4">
+                        {isAuditingThis ? (
+                          <span className="px-2.5 py-0.5 rounded-full bg-sand-800 text-sand-300 border border-sand-700 text-[11px] font-bold flex items-center gap-1 w-fit">
+                            <Loader2 className="h-3 w-3 animate-spin" /> Auditing
                           </span>
+                        ) : p.isAudited && p.auditedRobotProfile ? (
+                          p.auditedRobotProfile.usedAgenticAnalysis ? (
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-light text-emerald-text border border-emerald-border text-[11px] font-bold flex items-center gap-1 w-fit">
+                              <Bot className="h-3 w-3" /> Gemini Agent
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold flex items-center gap-1 w-fit">
+                              <AlertTriangle className="h-3 w-3" /> Heuristic Fallback
+                            </span>
+                          )
                         ) : (
-                          <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 font-mono text-[11px] font-bold border border-amber-200 flex items-center gap-1">
-                            <AlertTriangle className="h-3 w-3" /> Heuristic Fallback
+                          <span className="px-2.5 py-0.5 rounded-full bg-sand-800 text-sand-500 border border-sand-700 text-[11px] font-bold w-fit">
+                            Not Audited
                           </span>
-                        )
-                      )}
-                    </div>
-                    <p className="text-xs text-sand-500 font-mono mt-0.5">
-                      {p.description}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2 font-mono text-xs shrink-0">
-                    {p.repos.length > 0 && (
-                      <button
-                        onClick={() => handleRunAudit(p)}
-                        disabled={!!auditingProjectId}
-                        className="btn-emerald-primary py-2 px-4 text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-60"
-                      >
-                        {isAuditingThis ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                        {isAuditingThis ? 'Auditing...' : p.isAudited ? 'Re-run AI Audit' : 'Run AI Audit'}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleDeleteProject(p.id)}
-                      className="p-2 text-rose-700 hover:bg-rose-50 rounded-lg border border-rose-200 font-bold transition-all cursor-pointer"
-                      title="Delete Project"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2 font-mono text-xs">
-                  <input
-                    type="url"
-                    value={repoUrlInput[p.id] || ''}
-                    onChange={(e) => setRepoUrlInput({ ...repoUrlInput, [p.id]: e.target.value })}
-                    placeholder="https://github.com/org/sub-repo"
-                    className="flex-1 px-3.5 py-2 rounded-xl border border-sand-700 bg-sand-950 text-sand-50 focus:outline-none focus:border-emerald-primary min-w-0"
-                  />
-                  <button
-                    onClick={() => handleAddRepo(p.id)}
-                    className="px-4 py-2 bg-sand-800 hover:bg-sand-700 text-sand-50 rounded-xl font-bold flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
-                  >
-                    <Plus className="h-4 w-4 text-emerald-primary" />
-                    Add Sub-Repo
-                  </button>
-                </div>
-
-                {p.repos.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 font-mono text-xs pt-1">
-                    {p.repos.map((r) => (
-                      <div key={r.id} className="flex items-center justify-between p-3 bg-sand-950 rounded-xl border border-sand-800">
-                        <div className="flex items-center gap-2 truncate">
-                          <GitFork className="h-3.5 w-3.5 text-emerald-primary shrink-0" />
-                          <span className="font-bold text-sand-100 truncate">{r.name}</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-sand-300">
+                        {p.isAudited && p.auditedRobotProfile ? (p.auditedRobotProfile.robotVariants || []).length : '—'}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={() => setViewingProjectId(p.id)}
+                            className="p-2 text-sand-300 hover:text-sand-50 hover:bg-sand-800 rounded-lg border border-sand-700 transition-all cursor-pointer"
+                            title="View Project"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProject(p.id)}
+                            className="p-2 text-rose-700 hover:bg-rose-50 rounded-lg border border-rose-200 font-bold transition-all cursor-pointer"
+                            title="Delete Project"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => handleRemoveRepo(p.id, r.id)}
-                          className="p-1 text-sand-500 hover:text-rose-400 shrink-0 cursor-pointer"
-                          title="Remove Sub-Repo"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs font-mono text-sand-600 italic">No sub-repositories attached to this project yet — add one above, then run the AI audit.</p>
-                )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
-                {/* Live Agentic Reasoning Stream (this project's audit only) */}
-                {isAuditingThis && (
-                  <div className="animate-in fade-in slide-in-from-top-2">
-                    <StreamHud isStreaming logs={streamLogs} repoName={p.name} />
-                  </div>
-                )}
-
-                {!isAuditingThis && streamError && lastAuditProjectId === p.id && (
-                  <div className="bg-rose-50 border border-rose-200 p-3 rounded-lg text-xs font-mono text-rose-700">
-                    <span className="font-bold">AUDIT NOTICE: </span>{streamError}
-                  </div>
-                )}
-
-                {/* Codebase Review — the two-thing AI summary shown as soon as
-                    a codebase has been audited: which robots it defines, and
-                    a fixed, restricted autonomy-feature checklist. */}
-                {p.isAudited && p.auditedRobotProfile && (
-                  <div className="pt-4 border-t border-sand-800 space-y-4">
-                    <div className="text-xs font-bold text-sand-100 uppercase tracking-wider font-mono">
-                      Codebase Review
-                    </div>
-                    <CodebaseReview robot={p.auditedRobotProfile} />
-                  </div>
-                )}
-
-                {/* Audited Result Actions */}
-                {p.isAudited && p.auditedRobotProfile && (
-                  <div className="pt-2 border-t border-sand-800 space-y-4">
-                    <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
-                      <button
-                        onClick={() => setExpandedProjectId(isExpanded ? null : p.id)}
-                        className="px-3.5 py-2 rounded-lg bg-sand-800 hover:bg-sand-700 text-sand-100 font-bold flex items-center gap-1.5 cursor-pointer"
-                      >
-                        {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                        {isExpanded ? 'Hide Full Analysis' : 'View Full Analysis'}
-                      </button>
-                      <button
-                        onClick={() => goToRobot(p.auditedRobotProfile!, '/matrix')}
-                        className="px-3.5 py-2 rounded-lg bg-sand-800 hover:bg-sand-700 text-sand-100 font-bold flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Cpu className="h-3.5 w-3.5 text-emerald-primary" />
-                        Parameter Matrix
-                      </button>
-                      <button
-                        onClick={() => goToRobot(p.auditedRobotProfile!, '/studio')}
-                        className="px-3.5 py-2 rounded-lg bg-sand-800 hover:bg-sand-700 text-sand-100 font-bold flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Box className="h-3.5 w-3.5 text-emerald-primary" />
-                        3D Studio
-                      </button>
-                    </div>
-
-                    {isExpanded && (
-                      <div className="animate-in fade-in slide-in-from-top-2">
-                        <RobotDetailExplorer robot={p.auditedRobotProfile} />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+          {/* Pagination */}
+          <div className="flex items-center justify-between px-4 py-3 border-t border-sand-800 bg-sand-925/60 font-mono text-xs">
+            <span className="text-sand-500">
+              Showing {(clampedPage - 1) * PAGE_SIZE + 1}–{Math.min(clampedPage * PAGE_SIZE, projects.length)} of {projects.length} project{projects.length === 1 ? '' : 's'}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={clampedPage <= 1}
+                className="p-1.5 rounded-lg bg-sand-800 hover:bg-sand-700 text-sand-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer border border-sand-700"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <span className="text-sand-300 font-bold">Page {clampedPage} / {totalPages}</span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={clampedPage >= totalPages}
+                className="p-1.5 rounded-lg bg-sand-800 hover:bg-sand-700 text-sand-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer border border-sand-700"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="minimal-card p-12 text-center space-y-4">
@@ -553,6 +491,157 @@ export default function ProjectsPage() {
         </div>
       )}
 
+      {/* Project Detail Modal */}
+      {viewingProject && (
+        <ModalShell onClose={() => setViewingProjectId(null)} title={viewingProject.name} icon={GitFork} wide>
+          <div className="space-y-5 font-mono text-xs">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sand-400 flex-1 min-w-0">{viewingProject.description}</p>
+              {viewingProject.isAudited && viewingProject.auditedRobotProfile && (
+                viewingProject.auditedRobotProfile.usedAgenticAnalysis ? (
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-light text-emerald-text border border-emerald-border text-[11px] font-bold flex items-center gap-1 shrink-0">
+                    <Bot className="h-3 w-3" /> Gemini Agent
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[11px] font-bold flex items-center gap-1 shrink-0">
+                    <AlertTriangle className="h-3 w-3" /> Heuristic Fallback
+                  </span>
+                )
+              )}
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="url"
+                value={repoUrlInput[viewingProject.id] || ''}
+                onChange={(e) => setRepoUrlInput({ ...repoUrlInput, [viewingProject.id]: e.target.value })}
+                placeholder="https://github.com/org/sub-repo"
+                className="flex-1 px-3.5 py-2 rounded-xl border border-sand-700 bg-sand-950 text-sand-50 focus:outline-none focus:border-emerald-primary min-w-0"
+              />
+              <button
+                onClick={() => handleAddRepo(viewingProject.id)}
+                className="px-4 py-2 bg-sand-800 hover:bg-sand-700 text-sand-50 rounded-xl font-bold flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+              >
+                <Plus className="h-4 w-4 text-emerald-primary" />
+                Add Sub-Repo
+              </button>
+            </div>
+
+            {viewingProject.repos.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {viewingProject.repos.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between p-3 bg-sand-950 rounded-xl border border-sand-800">
+                    <div className="flex items-center gap-2 truncate">
+                      <GitFork className="h-3.5 w-3.5 text-emerald-primary shrink-0" />
+                      <span className="font-bold text-sand-100 truncate">{r.name}</span>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveRepo(viewingProject.id, r.id)}
+                      className="p-1 text-sand-500 hover:text-rose-400 shrink-0 cursor-pointer"
+                      title="Remove Sub-Repo"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sand-600 italic">No sub-repositories attached to this project yet — add one above, then run the AI audit.</p>
+            )}
+
+            {viewingProject.repos.length > 0 && (
+              <button
+                onClick={() => handleRunAudit(viewingProject)}
+                disabled={!!auditingProjectId}
+                className="btn-emerald-primary py-2.5 px-4 text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-60"
+              >
+                {auditingProjectId === viewingProject.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {auditingProjectId === viewingProject.id ? 'Auditing...' : viewingProject.isAudited ? 'Re-run AI Audit' : 'Run AI Audit'}
+              </button>
+            )}
+
+            {auditingProjectId === viewingProject.id && (
+              <div className="animate-in fade-in slide-in-from-top-2">
+                <StreamHud isStreaming logs={streamLogs} repoName={viewingProject.name} />
+              </div>
+            )}
+
+            {auditingProjectId !== viewingProject.id && streamError && lastAuditProjectId === viewingProject.id && (
+              <div className="bg-rose-50 border border-rose-200 p-3 rounded-lg text-rose-700">
+                <span className="font-bold">AUDIT NOTICE: </span>{streamError}
+              </div>
+            )}
+
+            {/* Codebase Review — the two-thing AI summary: which robots this
+                codebase defines, and a fixed autonomy-feature checklist.
+                Parameter Matrix / 3D Studio / full deep-dive explorer are
+                out of scope for Phase 1 and stay commented out below. */}
+            {viewingProject.isAudited && viewingProject.auditedRobotProfile && (
+              <div className="pt-4 border-t border-sand-800 space-y-4">
+                <div className="text-xs font-bold text-sand-100 uppercase tracking-wider">
+                  Codebase Review
+                </div>
+                <CodebaseReview robot={viewingProject.auditedRobotProfile} />
+              </div>
+            )}
+
+            {/*
+            {viewingProject.isAudited && viewingProject.auditedRobotProfile && (
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={() => goToRobot(viewingProject.auditedRobotProfile!, '/matrix')}>Parameter Matrix</button>
+                <button onClick={() => goToRobot(viewingProject.auditedRobotProfile!, '/studio')}>3D Studio</button>
+              </div>
+            )}
+            */}
+          </div>
+        </ModalShell>
+      )}
+
+    </div>
+  );
+}
+
+function ModalShell({
+  onClose,
+  title,
+  icon: Icon,
+  wide,
+  children,
+}: {
+  onClose: () => void;
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  wide?: boolean;
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-sand-950/70 backdrop-blur-sm flex items-start sm:items-center justify-center p-4 overflow-y-auto animate-in fade-in"
+      onClick={onClose}
+    >
+      <div
+        className={`minimal-card w-full ${wide ? 'max-w-3xl' : 'max-w-md'} my-8 sm:my-0 animate-in fade-in slide-in-from-top-4`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-sand-800 p-5">
+          <h3 className="text-sm font-bold text-sand-50 font-mono flex items-center gap-2">
+            <Icon className="h-4 w-4 text-emerald-primary" />
+            {title}
+          </h3>
+          <button onClick={onClose} className="text-sand-500 hover:text-sand-50 p-1 rounded-lg hover:bg-sand-800 cursor-pointer">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="p-5">
+          {children}
+        </div>
+      </div>
     </div>
   );
 }
