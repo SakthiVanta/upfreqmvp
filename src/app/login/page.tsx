@@ -41,7 +41,7 @@ export default function LoginPage() {
             </div>
           </Link>
           <h1 className="text-xl font-display font-extrabold text-sand-50 tracking-tight">
-            {mode === 'signin' ? 'Sign In to UpFreq Robotics' : 'Create UpFreq Robotics Account'}
+            {mode === 'signin' ? 'Sign In to UpFreq' : 'Create UpFreq Account'}
           </h1>
           <p className="text-xs text-sand-500">
             {mode === 'signin'

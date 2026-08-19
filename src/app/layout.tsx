@@ -23,7 +23,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'UpFreq Robotics — Agentic ROS 2 Codebase & Parameter Intelligence Platform',
+  title: 'UpFreq — Agentic ROS 2 Codebase & Parameter Intelligence Platform',
   description: 'Enterprise platform for auditing robotics GitHub repositories, ROS 2 URDF transforms, Nav2 stack parameters, and Gazebo simulation models.',
 };
 
