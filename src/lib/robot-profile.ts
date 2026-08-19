@@ -107,10 +107,25 @@ export interface RobotModelSimAsset {
   path: string;
 }
 
+/** This variant's own physical dimensions/speed limits — every field is
+ * null unless actually resolved from this variant's own repo content, same
+ * "no fallback numbers" rule as the top-level chassis. */
+export interface RobotModelMetrics {
+  lengthM: number | null;
+  widthM: number | null;
+  heightM: number | null;
+  wheelbaseM: number | null;
+  wheelRadiusM: number | null;
+  massKg: number | null;
+  maxLinearSpeedMs: number | null;
+  maxAngularSpeedRads: number | null;
+}
+
 /** Per-robot-variant deep breakdown from the Gemini agent — role/purpose,
- * real actuators/sensors, and real simulation asset file paths specific to
- * that one variant. Empty when the agent was unavailable (regex fallback
- * has no way to produce this) — never backfilled with a guess. */
+ * real actuators/sensors, real metrics, and real simulation asset file
+ * paths specific to that one variant. Empty when the agent was unavailable
+ * (regex fallback has no way to produce this) — never backfilled with a
+ * guess. */
 export interface RobotModelDetail {
   modelName: string;
   modelVariable: string;
@@ -118,6 +133,7 @@ export interface RobotModelDetail {
   rolePurpose: string;
   actuatorsSensors: string[];
   simulationAssets: RobotModelSimAsset[];
+  metrics: RobotModelMetrics;
 }
 
 export interface RobotProfile {

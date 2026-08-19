@@ -224,6 +224,25 @@ function buildCodebaseReview(
   ];
 }
 
+// Same discard-estimated-numbers rule as the top-level chassis, applied per
+// robot variant: the agent's schema requires a number even for metrics it
+// couldn't confidently resolve for that specific variant (it lists those in
+// metrics.estimatedFields) — strip those guessed numbers to null here so
+// the detail modal never renders a fabricated value as if it were real.
+function stripEstimatedRobotModelMetrics(robotModels: any[]): any[] {
+  return robotModels.map((m) => {
+    const estimated = new Set(m.metrics?.estimatedFields || []);
+    const metrics = m.metrics
+      ? Object.fromEntries(
+          Object.entries(m.metrics)
+            .filter(([k]) => k !== 'estimatedFields')
+            .map(([k, v]) => [k, estimated.has(k) ? null : v])
+        )
+      : null;
+    return { ...m, metrics };
+  });
+}
+
 function resolveMeshUrl(
   urdfText: string,
   nearIndex: number,
@@ -723,7 +742,7 @@ export async function POST(req: NextRequest) {
           dataFlowPipeline,
           autonomyModules,
           robotVariants,
-          robotModels: agentResult?.robotModels || [],
+          robotModels: agentResult?.robotModels ? stripEstimatedRobotModelMetrics(agentResult.robotModels) : [],
           codebaseReview,
           navigationStack: parsedPackages
             .filter(p => /nav|slam|control|localiz/i.test(p.name))
