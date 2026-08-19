@@ -12,6 +12,39 @@ export function getDb() {
   return null;
 }
 
+export async function resetDatabaseAndSeedDemoUser() {
+  try {
+    const db = getDb();
+    if (!db) {
+      console.log('[NEON DB] DATABASE_URL not configured. Resetting local state.');
+      return { success: true, message: 'Local workspace reset to clean demo user state.' };
+    }
+
+    // Delete existing tables data
+    await db.delete(schema.parametricProfiles);
+    await db.delete(schema.analyzedRepositories);
+    await db.delete(schema.projectRepositories);
+    await db.delete(schema.projects);
+    await db.delete(schema.users);
+
+    // Insert clean Demo User
+    const demoUserId = 'usr_demo_ekumen';
+    await db.insert(schema.users).values({
+      id: demoUserId,
+      email: 'engineering@ekumenlabs.com',
+      name: 'Ekumen OS Robotics Team',
+      githubId: 'ekumen-engineer',
+      avatarUrl: 'https://github.com/Ekumen-OS.png'
+    });
+
+    console.log('[NEON DB] Database reset complete! Clean demo user inserted.');
+    return { success: true, message: 'Neon PostgreSQL database reset cleanly with demo user.' };
+  } catch (err: any) {
+    console.error(`[NEON DB RESET ERROR] ${err.message}`);
+    return { success: false, message: `Database reset error: ${err.message}` };
+  }
+}
+
 export async function saveRepositoryToNeon(repoUrl: string, analysisResult: any, projectId?: string) {
   try {
     const db = getDb();
