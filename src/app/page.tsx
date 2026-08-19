@@ -1,190 +1,33 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { createDynamicRobotProfileFromUrl } from '@/lib/robot-profile';
-import { saveRobotToLibrary } from '@/lib/robot-library';
 import { GithubIcon } from '@/components/ui/github-icon';
-import { StreamHud } from '@/components/agent/stream-hud';
-import { RobotDetailExplorer } from '@/components/dashboard/robot-detail-explorer';
 import {
-  Cpu, Layers, Box, Terminal, Play,
-  Loader2, Compass, HelpCircle,
-  Award, Workflow
+  Cpu, Layers, Box, Compass, HelpCircle,
+  Award, Workflow, Loader2
 } from 'lucide-react';
 
 export default function HomePage() {
   const router = useRouter();
-  const { isAuthenticated, loginWithGithub, selectedRobot, setSelectedRobot, setIngestedRepoUrl } = useAuth();
+  const { isAuthenticated, loginWithGithub } = useAuth();
 
-  const [repoUrl, setRepoUrl] = useState('');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [streamLogs, setStreamLogs] = useState<string[]>([]);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeShowcaseTab, setActiveShowcaseTab] = useState<'3d' | 'pipeline' | 'matrix' | 'autonomy'>('3d');
 
-  const handleStartAnalysis = async () => {
-    if (!isAuthenticated) {
-      loginWithGithub();
-    }
+  // Projects (each representing one robot's autonomy codebase) is the one
+  // real workspace — an authenticated visit to the marketing root just
+  // forwards there instead of duplicating the ingest/audit UI here too.
+  useEffect(() => {
+    if (isAuthenticated) router.replace('/projects');
+  }, [isAuthenticated, router]);
 
-    setIsAnalyzing(true);
-    setStreamLogs([]);
-    setErrorMessage(null);
-
-    try {
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repoUrl })
-      });
-
-      if (!response.ok || !response.body) {
-        setErrorMessage('Failed to connect to analysis stream endpoint.');
-        setIsAnalyzing(false);
-        return;
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.log) setStreamLogs(prev => [...prev, data.log]);
-
-              if (data.stage === 'ERROR') {
-                setErrorMessage(data.message || 'ROS validation failed.');
-                setIsAnalyzing(false);
-                return;
-              }
-
-              if (data.stage === 'COMPLETE' && data.result) {
-                const profile = createDynamicRobotProfileFromUrl(repoUrl, data.result);
-                setSelectedRobot(profile);
-                setIngestedRepoUrl(repoUrl);
-                saveRobotToLibrary(profile);
-                setIsAnalyzing(false);
-                setStreamLogs(prev => [...prev, '✓ Database Persisted! Redirecting to Dashboard...']);
-                setTimeout(() => router.push('/dashboard'), 1200);
-              }
-            } catch (e) {}
-          }
-        }
-      }
-    } catch (err: any) {
-      setErrorMessage(`Network error: ${err.message}`);
-      setIsAnalyzing(false);
-    }
-  };
-
-  // If user IS authenticated, render post-login App Workspace directly
   if (isAuthenticated) {
     return (
-      <div className="space-y-6 font-sans">
-
-        {/* Repo Ingest Control Bar */}
-        <div className="minimal-card p-6 space-y-4">
-          <div className="flex items-center justify-between border-b border-sand-800 pb-3">
-            <div className="flex items-center gap-2">
-              <Compass className="h-5 w-5 text-emerald-primary" />
-              <h1 className="text-sm font-bold text-sand-100 uppercase tracking-wider font-mono">
-                Live GitHub Repository Ingestion Engine
-              </h1>
-            </div>
-            <span className="text-xs font-mono text-emerald-text bg-emerald-light px-3 py-1 rounded-md font-bold border border-emerald-border">
-              Authenticated Session
-            </span>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              type="text"
-              value={repoUrl}
-              onChange={(e) => setRepoUrl(e.target.value)}
-              placeholder="https://github.com/owner/repository"
-              className="flex-1 px-4 py-2.5 rounded-lg border border-sand-700 bg-sand-950 font-mono text-xs text-sand-50 focus:outline-none focus:border-emerald-primary min-w-0"
-            />
-            <button
-              onClick={handleStartAnalysis}
-              disabled={isAnalyzing || !repoUrl.trim()}
-              className="btn-robotics-primary py-2.5 px-6 font-mono text-xs flex items-center justify-center gap-2 shrink-0 cursor-pointer"
-            >
-              {isAnalyzing ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Streaming Live Audit...
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4" />
-                  Load & Analyze Repository
-                </>
-              )}
-            </button>
-          </div>
-
-          {errorMessage && (
-            <div className="bg-rose-50 border border-rose-200 p-4 rounded-lg text-xs font-mono text-rose-700">
-              <span className="font-bold">ROS VALIDATION ERROR: </span>
-              {errorMessage}
-            </div>
-          )}
-
-          {(isAnalyzing || streamLogs.length > 0) && (
-            <div className="minimal-card p-4 bg-sand-950 text-sand-100 font-mono text-xs space-y-2">
-              <div className="flex items-center justify-between border-b border-sand-800 pb-2">
-                <span className="text-emerald-primary font-bold flex items-center gap-2">
-                  <Terminal className="h-4 w-4" />
-                  Live SSE Stream Execution Console
-                </span>
-              </div>
-              <div className="h-36 overflow-y-auto space-y-1 p-2 bg-sand-925 rounded border border-sand-800 text-[11px]">
-                {streamLogs.map((log, idx) => (
-                  <div key={idx} className="text-sand-300 animate-in fade-in">
-                    {log}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Live Stream HUD */}
-        <StreamHud repoUrl={repoUrl} isStreaming={isAnalyzing} logs={streamLogs} />
-
-        {/* Exhaustive Robot Detail Explorer — only for a repo that was
-            actually analyzed. No fabricated placeholder profile: an
-            unaudited repo shows an honest empty state instead. */}
-        {selectedRobot ? (
-          <RobotDetailExplorer robot={selectedRobot} />
-        ) : !isAnalyzing ? (
-          <div className="minimal-card p-12 text-center space-y-4">
-            <div className="h-16 w-16 mx-auto rounded-2xl bg-sand-800 text-sand-500 flex items-center justify-center">
-              <Compass className="h-8 w-8" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-base font-bold text-sand-50 font-sans">
-                Nothing Analyzed Yet
-              </h3>
-              <p className="text-xs text-sand-500 font-mono max-w-md mx-auto">
-                Enter a GitHub repository URL above and run the audit — the pipeline diagram, sensor matrix, and autonomy module classification only appear once real analysis has completed.
-              </p>
-            </div>
-          </div>
-        ) : null}
+      <div className="flex items-center justify-center py-24 text-sand-500 font-mono text-xs gap-2">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Opening Robot Projects...
       </div>
     );
   }
