@@ -64,6 +64,18 @@ export interface AgenticSimAsset {
   path: string;
 }
 
+export interface AgenticRobotMetrics {
+  lengthM: number;
+  widthM: number;
+  heightM: number;
+  wheelbaseM: number;
+  wheelRadiusM: number;
+  massKg: number;
+  maxLinearSpeedMs: number;
+  maxAngularSpeedRads: number;
+  estimatedFields: string[];
+}
+
 export interface AgenticRobotModel {
   modelName: string;
   modelVariable: string;
@@ -71,6 +83,7 @@ export interface AgenticRobotModel {
   rolePurpose: string;
   actuatorsSensors: string[];
   simulationAssets: AgenticSimAsset[];
+  metrics: AgenticRobotMetrics;
 }
 
 export interface AgenticAnalysisResult {
@@ -205,8 +218,28 @@ const TOOLS = [
                     },
                     description: 'Real file paths in this repo specific to this variant — every path must be one you actually resolved or read, never guessed from a naming convention.',
                   },
+                  metrics: {
+                    type: 'OBJECT',
+                    description: "This specific variant's own physical dimensions and speed limits — read from its own URDF geometry (<box>/<cylinder> size, <mass value>, wheel joint origins) and its own controller/param YAML (max linear/angular velocity), not copied from another variant.",
+                    properties: {
+                      lengthM: { type: 'NUMBER', description: 'meters, along X, this variant only' },
+                      widthM: { type: 'NUMBER', description: 'meters, along Y, this variant only' },
+                      heightM: { type: 'NUMBER', description: 'meters, along Z, this variant only' },
+                      wheelbaseM: { type: 'NUMBER', description: 'meters, distance between left/right drive wheels, this variant only' },
+                      wheelRadiusM: { type: 'NUMBER', description: 'meters, this variant only' },
+                      massKg: { type: 'NUMBER', description: 'this variant only' },
+                      maxLinearSpeedMs: { type: 'NUMBER', description: 'm/s, this variant only' },
+                      maxAngularSpeedRads: { type: 'NUMBER', description: 'rad/s, this variant only' },
+                      estimatedFields: {
+                        type: 'ARRAY',
+                        items: { type: 'STRING' },
+                        description: 'Names of the metrics fields above that you could NOT confidently resolve from this variant\'s own real repo content and are therefore your engineering estimate, not a real extracted value. The caller discards estimated numbers entirely and shows "not determined" instead — an honest estimated field costs nothing, a wrong confident value is a real bug users will see.',
+                      },
+                    },
+                    required: ['lengthM', 'widthM', 'heightM', 'wheelbaseM', 'wheelRadiusM', 'massKg', 'maxLinearSpeedMs', 'maxAngularSpeedRads', 'estimatedFields'],
+                  },
                 },
-                required: ['modelName', 'modelVariable', 'formFactor', 'rolePurpose', 'actuatorsSensors', 'simulationAssets'],
+                required: ['modelName', 'modelVariable', 'formFactor', 'rolePurpose', 'actuatorsSensors', 'simulationAssets', 'metrics'],
               },
             },
             reasoningSummary: { type: 'STRING', description: 'Two or three sentences on what you found and any notable uncertainty.' },
@@ -230,7 +263,7 @@ Accuracy matters far more than speed here — a wrong number that looks confiden
 
 Prioritize files in this order: (1) the main URDF/xacro entry point — usually named after the robot or repo, or referenced from a launch file, not a fragment under an "include/" folder — (2) files it directly includes via xacro:include, (3) YAML files those includes load via xacro.load_yaml or a matching filename convention, (4) package.xml for dependency context. Don't stop at the first file that mentions a sensor keyword — verify you're looking at the actual sensor-bearing joint, not an intermediate mounting link, by checking the parent/child link names make sense. When you have enough information, call submit_analysis exactly once.
 
-Multiple robot models: some repos define more than one robot variant — multiple URDF/SDF files sitting side by side directly in a urdf/ folder (not nested under include/), often selected at runtime via an environment variable, launch argument, or filename suffix (e.g. turtlebot3_burger.urdf, turtlebot3_waffle.urdf, turtlebot3_waffle_pi.urdf all in the same package). When you see this pattern, open each variant's own URDF/SDF and any config file specific to it, and report every one of them in robotModels with its own real actuators/sensors and its own real file paths — do not describe one variant and copy its details onto the others. This field is mandatory: submit one entry even for a single-robot repo. Never pad it with a made-up file path or a sensor you didn't actually see in that variant's own file — an honest empty simulationAssets array is fine, a guessed path is not.`;
+Multiple robot models: some repos define more than one robot variant — multiple URDF/SDF files sitting side by side directly in a urdf/ folder (not nested under include/), often selected at runtime via an environment variable, launch argument, or filename suffix (e.g. turtlebot3_burger.urdf, turtlebot3_waffle.urdf, turtlebot3_waffle_pi.urdf all in the same package). When you see this pattern, open each variant's own URDF/SDF and any config file specific to it, and report every one of them in robotModels with its own real actuators/sensors, its own real file paths, and its own real metrics — do not describe one variant and copy its details (or its numbers) onto the others; two variants sharing the same chassis size is a real finding, but only report it if you actually confirmed both files say so. This field is mandatory: submit one entry even for a single-robot repo. Never pad it with a made-up file path, a sensor, or a dimension you didn't actually see in that variant's own file — an honest empty simulationAssets array or an honest metrics.estimatedFields entry is fine, a guessed value is not. Read each variant's own geometry (<box>/<cylinder> size, <mass value>, wheel joint <origin>) for its metrics the same way you would for the single-robot chassis field — same accuracy bar, applied per variant.`;
 
 interface GeminiPart {
   text?: string;
@@ -400,6 +433,7 @@ export async function runAgenticAnalysis(
             rolePurpose: m.rolePurpose,
             actuatorsSensors: m.actuatorsSensors || [],
             simulationAssets: m.simulationAssets || [],
+            metrics: m.metrics,
           })),
           reasoningSummary: args.reasoningSummary || '',
           toolCallCount,

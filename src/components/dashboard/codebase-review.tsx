@@ -1,8 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CheckSquare, Square, Bot, ListChecks, Info, X, Cpu, FileCode } from 'lucide-react';
+import { CheckSquare, Square, Bot, ListChecks, Info, X, Cpu, FileCode, Ruler } from 'lucide-react';
 import { AutonomyFeatureCheck, RobotModelDetail, RobotProfile } from '@/lib/robot-profile';
+
+function MetricValue({ value, unit }: { value: number | null; unit: string }) {
+  if (value == null) return <span className="text-amber-600 font-bold text-sm">Not determined</span>;
+  return <span className="text-sand-50 font-bold text-sm">{value} {unit}</span>;
+}
 
 // Evidence text is kept as a hover tooltip only — the checklist should be a
 // scannable list of checkboxes, not a wall of quoted file paths.
@@ -175,6 +180,45 @@ function RobotDetailModal({
                 </div>
               )}
 
+              {detail.metrics && (
+                <div>
+                  <h4 className="text-xs font-bold text-sand-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Ruler className="h-3.5 w-3.5" />
+                    Metrics
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="p-3 bg-sand-950 rounded-lg border border-sand-800">
+                      <span className="text-[10px] text-sand-500 uppercase font-bold block mb-1">Dimensions (L×W×H)</span>
+                      {detail.metrics.lengthM != null && detail.metrics.widthM != null && detail.metrics.heightM != null ? (
+                        <span className="text-sand-50 font-bold text-sm">{detail.metrics.lengthM}×{detail.metrics.widthM}×{detail.metrics.heightM} m</span>
+                      ) : (
+                        <span className="text-amber-600 font-bold text-sm">Not determined</span>
+                      )}
+                    </div>
+                    <div className="p-3 bg-sand-950 rounded-lg border border-sand-800">
+                      <span className="text-[10px] text-sand-500 uppercase font-bold block mb-1">Mass</span>
+                      <MetricValue value={detail.metrics.massKg} unit="kg" />
+                    </div>
+                    <div className="p-3 bg-sand-950 rounded-lg border border-sand-800">
+                      <span className="text-[10px] text-sand-500 uppercase font-bold block mb-1">Wheelbase</span>
+                      <MetricValue value={detail.metrics.wheelbaseM} unit="m" />
+                    </div>
+                    <div className="p-3 bg-sand-950 rounded-lg border border-sand-800">
+                      <span className="text-[10px] text-sand-500 uppercase font-bold block mb-1">Wheel Radius</span>
+                      <MetricValue value={detail.metrics.wheelRadiusM} unit="m" />
+                    </div>
+                    <div className="p-3 bg-sand-950 rounded-lg border border-sand-800">
+                      <span className="text-[10px] text-sand-500 uppercase font-bold block mb-1">Max Linear Speed</span>
+                      <MetricValue value={detail.metrics.maxLinearSpeedMs} unit="m/s" />
+                    </div>
+                    <div className="p-3 bg-sand-950 rounded-lg border border-sand-800">
+                      <span className="text-[10px] text-sand-500 uppercase font-bold block mb-1">Max Angular Speed</span>
+                      <MetricValue value={detail.metrics.maxAngularSpeedRads} unit="rad/s" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {detail.actuatorsSensors.length > 0 && (
                 <div>
                   <h4 className="text-xs font-bold text-sand-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
@@ -209,7 +253,7 @@ function RobotDetailModal({
                 </div>
               )}
 
-              {!detail.rolePurpose && detail.actuatorsSensors.length === 0 && detail.simulationAssets.length === 0 && (
+              {!detail.rolePurpose && !detail.metrics && detail.actuatorsSensors.length === 0 && detail.simulationAssets.length === 0 && (
                 <p className="text-sand-500">The agent didn't resolve further detail for this variant.</p>
               )}
             </>
