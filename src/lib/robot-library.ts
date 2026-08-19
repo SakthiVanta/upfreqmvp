@@ -1,4 +1,4 @@
-import { RobotProfile } from './andino-data';
+import { RobotProfile } from './robot-profile';
 
 const STORAGE_KEY = 'upfreq_robot_library';
 

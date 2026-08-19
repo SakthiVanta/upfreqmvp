@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { RobotProfile, TestCaseRecord } from '@/lib/andino-data';
+import { RobotProfile, TestCaseRecord } from '@/lib/robot-profile';
 import { PipelineFlowDiagram } from '@/components/pipeline/pipeline-flow-diagram';
 import {
   Compass, Cpu, Layers, Radio, CheckCircle2, Database,
@@ -66,6 +66,17 @@ export function RobotDetailExplorer({
         </div>
 
         <div className="flex items-center gap-2 font-mono text-xs">
+          {robot.usedAgenticAnalysis ? (
+            <span className="px-3 py-1 rounded bg-emerald-light border border-emerald-border font-bold text-emerald-text flex items-center gap-1.5" title="A Gemini agent read real files from this repo and reasoned about the results">
+              <Cpu className="h-3.5 w-3.5" />
+              Gemini Agent Analysis
+            </span>
+          ) : (
+            <span className="px-3 py-1 rounded bg-amber-50 border border-amber-200 font-bold text-amber-700 flex items-center gap-1.5" title="The Gemini agent was unavailable for this audit — a deterministic regex parser ran instead, with reduced accuracy on chassis dimensions and templated Xacro values">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Heuristic Fallback (no AI)
+            </span>
+          )}
           <span className="px-3 py-1 rounded bg-emerald-light border border-emerald-border font-bold text-emerald-text flex items-center gap-1.5">
             <Database className="h-3.5 w-3.5" />
             Saved in DB
@@ -249,22 +260,33 @@ export function RobotDetailExplorer({
                     <h3 className="font-bold text-sand-50 text-sm">{sensor.name}</h3>
                     <span className="text-[10px] text-sand-500">{sensor.type}</span>
                   </div>
-                  <span className="text-[10px] bg-emerald-light text-emerald-text border border-emerald-border px-2 py-0.5 rounded font-bold h-fit">
-                    TF: {sensor.frameId}
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-[10px] bg-emerald-light text-emerald-text border border-emerald-border px-2 py-0.5 rounded font-bold h-fit">
+                      TF: {sensor.frameId}
+                    </span>
+                    {sensor.estimated && (
+                      <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded font-bold h-fit" title="Position/orientation could not be confidently resolved from the repo — this is a placeholder, not a real extracted value">
+                        Estimated
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-sand-400">
                   <div className="p-2.5 bg-sand-950 rounded border border-sand-800">
                     <span className="text-[10px] text-sand-600 font-bold block uppercase">Joint Origin Position (xyz):</span>
                     <span className="font-bold text-sand-100 font-mono">
-                      x: {sensor.position.x}m, y: {sensor.position.y}m, z: {sensor.position.z}m
+                      {sensor.position
+                        ? `x: ${sensor.position.x}m, y: ${sensor.position.y}m, z: ${sensor.position.z}m`
+                        : <span className="text-amber-500">Not determined</span>}
                     </span>
                   </div>
                   <div className="p-2.5 bg-sand-950 rounded border border-sand-800">
                     <span className="text-[10px] text-sand-600 font-bold block uppercase">Orientation Roll Pitch Yaw:</span>
                     <span className="font-bold text-sand-100 font-mono">
-                      r: {sensor.orientation.r}, p: {sensor.orientation.p}, y: {sensor.orientation.y}
+                      {sensor.orientation
+                        ? `r: ${sensor.orientation.r}, p: ${sensor.orientation.p}, y: ${sensor.orientation.y}`
+                        : <span className="text-amber-500">Not determined</span>}
                     </span>
                   </div>
                 </div>
@@ -306,23 +328,27 @@ export function RobotDetailExplorer({
               <div className="space-y-2">
                 <div className="flex justify-between border-b border-sand-800 py-1">
                   <span className="text-sand-500">Chassis Dimensions (L x W x H):</span>
-                  <span className="font-bold text-sand-100">{robot.chassis.length}m × {robot.chassis.width}m × {robot.chassis.height}m</span>
+                  <NotDetermined value={robot.chassis.length != null && robot.chassis.width != null && robot.chassis.height != null
+                    ? `${robot.chassis.length}m × ${robot.chassis.width}m × ${robot.chassis.height}m` : null} />
                 </div>
                 <div className="flex justify-between border-b border-sand-800 py-1">
                   <span className="text-sand-500">Total Mass (kg):</span>
-                  <span className="font-bold text-sand-100">{robot.chassis.totalMassKg} kg</span>
+                  <NotDetermined value={robot.chassis.totalMassKg != null ? `${robot.chassis.totalMassKg} kg` : null} />
                 </div>
                 <div className="flex justify-between border-b border-sand-800 py-1">
                   <span className="text-sand-500">Wheelbase Width:</span>
-                  <span className="font-bold text-sand-100">{robot.chassis.wheelbase} m</span>
+                  <NotDetermined value={robot.chassis.wheelbase != null ? `${robot.chassis.wheelbase} m` : null} />
                 </div>
                 <div className="flex justify-between border-b border-sand-800 py-1">
                   <span className="text-sand-500">Wheel Radius:</span>
-                  <span className="font-bold text-sand-100">{robot.chassis.wheelRadius} m</span>
+                  <NotDetermined value={robot.chassis.wheelRadius != null ? `${robot.chassis.wheelRadius} m` : null} />
                 </div>
                 <div className="flex justify-between py-1">
                   <span className="text-sand-500">Inertia (Ixx, Iyy, Izz):</span>
-                  <span className="font-bold text-emerald-primary">{robot.chassis.inertia.ixx}, {robot.chassis.inertia.iyy}, {robot.chassis.inertia.izz}</span>
+                  <NotDetermined
+                    value={robot.chassis.inertia ? `${robot.chassis.inertia.ixx}, ${robot.chassis.inertia.iyy}, ${robot.chassis.inertia.izz}` : null}
+                    className="text-emerald-primary"
+                  />
                 </div>
               </div>
             </div>
@@ -334,15 +360,17 @@ export function RobotDetailExplorer({
               <div className="space-y-2">
                 <div className="flex justify-between border-b border-sand-800 py-1">
                   <span className="text-sand-500">Max Linear Speed (v_max):</span>
-                  <span className="font-bold text-sand-100">{robot.chassis.maxSpeedLinearMs} m/s</span>
+                  <NotDetermined value={robot.chassis.maxSpeedLinearMs != null ? `${robot.chassis.maxSpeedLinearMs} m/s` : null} />
                 </div>
                 <div className="flex justify-between py-1">
                   <span className="text-sand-500">Max Angular Speed (omega_max):</span>
-                  <span className="font-bold text-sand-100">{robot.chassis.maxSpeedAngularRads} rad/s</span>
+                  <NotDetermined value={robot.chassis.maxSpeedAngularRads != null ? `${robot.chassis.maxSpeedAngularRads} rad/s` : null} />
                 </div>
               </div>
               <p className="text-[11px] text-sand-600 pt-2 border-t border-sand-800 leading-relaxed">
-                Chassis mass/inertia are engineering estimates seeded from a reference platform — exact values require a CAD/mesh volume pass this analysis does not yet perform.
+                {robot.chassisEstimatedFields && robot.chassisEstimatedFields.length > 0
+                  ? `Fields shown as "Not determined" above could not be confidently resolved from this repository (often Xacro/YAML-templated values) — no placeholder number is shown for them.`
+                  : `All chassis dimensions above were extracted directly from this repository's real geometry.`}
               </p>
             </div>
           </div>
@@ -428,4 +456,19 @@ export function RobotDetailExplorer({
 
     </div>
   );
+}
+
+function EstimatedTag() {
+  return (
+    <span className="text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-bold normal-case" title="Could not be confidently resolved from this repo — engineering placeholder, not a real extracted value">
+      estimated
+    </span>
+  );
+}
+
+function NotDetermined({ value, className }: { value: string | null; className?: string }) {
+  if (value == null) {
+    return <span className="font-bold text-amber-600 text-[11px]">Not determined</span>;
+  }
+  return <span className={`font-bold text-sand-100 ${className || ''}`}>{value}</span>;
 }

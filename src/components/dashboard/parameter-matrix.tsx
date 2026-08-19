@@ -1,8 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { RobotProfile } from '@/lib/andino-data';
-import { Compass, Cpu, Layers, Radio, FileText, CheckCircle2, Copy, GitFork, Navigation, Terminal, AlertTriangle } from 'lucide-react';
+import { RobotProfile } from '@/lib/robot-profile';
+import { Compass, Cpu, Layers, Radio, FileText, CheckCircle2, Copy, GitFork, Navigation, Terminal, AlertTriangle, Package, Bot } from 'lucide-react';
+
+function NotDetermined({ value, unit }: { value: number | null; unit: string }) {
+  if (value == null) return <span className="text-amber-600 font-semibold">Not determined</span>;
+  return <span className="text-sand-50 font-bold">{value} {unit}</span>;
+}
 
 export function ParameterMatrix({
   selectedRobot,
@@ -11,7 +16,7 @@ export function ParameterMatrix({
   selectedRobot: RobotProfile;
   onSelectRobot?: (robot: RobotProfile) => void;
 }) {
-  const [activeTab, setActiveTab] = useState<'sensors' | 'navigation' | 'gazebo' | 'topics' | 'launch'>('sensors');
+  const [activeTab, setActiveTab] = useState<'sensors' | 'packages' | 'navigation' | 'gazebo' | 'topics' | 'launch'>('sensors');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const handleCopy = (text: string, id: string) => {
@@ -22,10 +27,11 @@ export function ParameterMatrix({
 
   const tabs: Array<{ id: typeof activeTab; label: string; icon: any; count: number }> = [
     { id: 'sensors', label: '1. Sensors', icon: Compass, count: selectedRobot.sensors.length },
-    { id: 'navigation', label: '2. Nav2 & SLAM', icon: Navigation, count: selectedRobot.navigationStack.length },
-    { id: 'gazebo', label: '3. Simulation Plugins', icon: Cpu, count: selectedRobot.gazeboPlugins.length },
-    { id: 'topics', label: '4. ROS Topics', icon: Radio, count: selectedRobot.topics.length },
-    { id: 'launch', label: '5. Launch Files', icon: FileText, count: selectedRobot.launchFiles.length },
+    { id: 'packages', label: '2. ROS 2 Packages', icon: Package, count: selectedRobot.packages.length },
+    { id: 'navigation', label: '3. Nav2 & SLAM', icon: Navigation, count: selectedRobot.navigationStack.length },
+    { id: 'gazebo', label: '4. Simulation Plugins', icon: Cpu, count: selectedRobot.gazeboPlugins.length },
+    { id: 'topics', label: '5. ROS Topics', icon: Radio, count: selectedRobot.topics.length },
+    { id: 'launch', label: '6. Launch Files', icon: FileText, count: selectedRobot.launchFiles.length },
   ];
 
   return (
@@ -41,6 +47,17 @@ export function ParameterMatrix({
         </div>
 
         <div className="flex items-center gap-2 font-mono">
+          {selectedRobot.usedAgenticAnalysis ? (
+            <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-light text-emerald-text border border-emerald-border flex items-center gap-1.5" title="Real Gemini agentic tool-use analysis produced this data">
+              <Bot className="h-3.5 w-3.5" />
+              Gemini Agent
+            </span>
+          ) : (
+            <span className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5" title="Gemini was unavailable — a lower-accuracy regex parser produced this data">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Heuristic Fallback
+            </span>
+          )}
           <span className="px-3 py-1.5 rounded-md text-xs font-extrabold bg-emerald-primary text-sand-950">
             {selectedRobot.name} ({selectedRobot.rosVersion})
           </span>
@@ -94,49 +111,102 @@ export function ParameterMatrix({
       {/* Tab 1: Physical Sensors Table */}
       {activeTab === 'sensors' && (
         <div className="p-4 sm:p-6 overflow-x-auto">
-          <table className="w-full text-left font-mono text-xs border-collapse border border-sand-800 rounded-lg overflow-hidden">
-            <thead>
-              <tr className="bg-sand-925 border-b border-sand-800 text-sand-300 font-semibold">
-                <th className="py-2.5 px-3">#</th>
-                <th className="py-2.5 px-3">Sensor Name</th>
-                <th className="py-2.5 px-3">Link Name</th>
-                <th className="py-2.5 px-3">Parent Link</th>
-                <th className="py-2.5 px-3">Position (x, y, z) m</th>
-                <th className="py-2.5 px-3">Orientation (r, p, y) rad</th>
-                <th className="py-2.5 px-3">Collision Type</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-sand-800">
-              {selectedRobot.sensors.map((sensor, idx) => (
-                <tr key={sensor.id} className="hover:bg-sand-925/60 transition-colors">
-                  <td className="py-3 px-3 text-sand-500 font-bold">{idx + 1}</td>
-                  <td className="py-3 px-3 font-bold text-sand-50">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-emerald-primary" />
-                      {sensor.name}
-                    </div>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span className="font-semibold text-emerald-primary bg-emerald-light px-2 py-0.5 rounded border border-emerald-border inline-block">
-                      {sensor.linkName}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 text-sand-300">{sensor.parentLink}</td>
-                  <td className="py-3 px-3 font-bold text-sand-100">
-                    {sensor.position.x}, {sensor.position.y}, {sensor.position.z}
-                  </td>
-                  <td className="py-3 px-3 text-sand-400">
-                    {sensor.orientation.r}, {sensor.orientation.p}, {sensor.orientation.y}
-                  </td>
-                  <td className="py-3 px-3 text-sand-400">{sensor.collisionType || 'Custom Mesh'}</td>
+          {selectedRobot.sensors.length > 0 ? (
+            <table className="w-full text-left font-mono text-xs border-collapse border border-sand-800 rounded-lg overflow-hidden">
+              <thead>
+                <tr className="bg-sand-925 border-b border-sand-800 text-sand-300 font-semibold">
+                  <th className="py-2.5 px-3">#</th>
+                  <th className="py-2.5 px-3">Sensor Name</th>
+                  <th className="py-2.5 px-3">Link Name</th>
+                  <th className="py-2.5 px-3">Parent Link</th>
+                  <th className="py-2.5 px-3">Position (x, y, z) m</th>
+                  <th className="py-2.5 px-3">Orientation (r, p, y) rad</th>
+                  <th className="py-2.5 px-3">Source File</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-sand-800">
+                {selectedRobot.sensors.map((sensor, idx) => (
+                  <tr key={sensor.id} className="hover:bg-sand-925/60 transition-colors">
+                    <td className="py-3 px-3 text-sand-500 font-bold">{idx + 1}</td>
+                    <td className="py-3 px-3 font-bold text-sand-50">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-emerald-primary" />
+                        {sensor.name}
+                      </div>
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className="font-semibold text-emerald-primary bg-emerald-light px-2 py-0.5 rounded border border-emerald-border inline-block">
+                        {sensor.linkName}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-sand-300">{sensor.parentLink}</td>
+                    <td className="py-3 px-3 font-bold text-sand-100">
+                      {sensor.position ? `${sensor.position.x}, ${sensor.position.y}, ${sensor.position.z}` : (
+                        <span className="text-amber-600 font-semibold">Not determined</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 text-sand-400">
+                      {sensor.orientation ? `${sensor.orientation.r}, ${sensor.orientation.p}, ${sensor.orientation.y}` : (
+                        <span className="text-amber-600 font-semibold">Not determined</span>
+                      )}
+                    </td>
+                    <td className="py-3 px-3 text-sand-500 truncate max-w-[220px]" title={sensor.sourceFile}>{sensor.sourceFile || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="p-6 rounded-xl border border-dashed border-sand-800 text-center text-sand-500">
+              No LiDAR, camera, or IMU joints were detected in this repository's URDF/Xacro files.
+            </div>
+          )}
         </div>
       )}
 
-      {/* Tab 2: Nav2 & SLAM Navigation Stack */}
+      {/* Tab 2: ROS 2 Packages — real package.xml manifests, previously parsed but never shown */}
+      {activeTab === 'packages' && (
+        <div className="p-4 sm:p-6">
+          {selectedRobot.packages.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
+              {selectedRobot.packages.map((pkg, idx) => (
+                <div key={idx} className="minimal-card p-4 space-y-2.5">
+                  <div className="flex items-center justify-between border-b border-sand-800 pb-2">
+                    <span className="font-bold text-sand-50 text-sm">{pkg.name}</span>
+                    <span className="text-[10px] font-bold text-emerald-text bg-emerald-light px-2 py-0.5 rounded border border-emerald-border">
+                      v{pkg.version}
+                    </span>
+                  </div>
+                  <p className="text-sand-400 leading-relaxed">{pkg.description}</p>
+                  <div className="flex items-center justify-between text-[11px] pt-1">
+                    <span className="text-sand-600">{pkg.folderPath}</span>
+                    <span className="bg-sand-800 text-sand-300 px-2 py-0.5 rounded border border-sand-700">{pkg.buildType}</span>
+                  </div>
+                  {pkg.dependencies.length > 0 && (
+                    <div className="pt-2 border-t border-sand-800">
+                      <span className="text-[10px] font-bold text-sand-600 uppercase tracking-wider block mb-1">
+                        {pkg.dependencies.length} Dependencies:
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {pkg.dependencies.map((dep, dIdx) => (
+                          <span key={dIdx} className="text-[10px] bg-sand-950 text-sand-300 px-1.5 py-0.5 rounded border border-sand-800">
+                            {dep}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-6 rounded-xl border border-dashed border-sand-800 text-center text-sand-500 font-mono text-xs">
+              No package.xml manifests were discovered in this repository.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab 3: Nav2 & SLAM Navigation Stack */}
       {activeTab === 'navigation' && (
         <div className="p-4 sm:p-6 space-y-6 font-mono text-xs">
           {selectedRobot.navigationStack.length > 0 ? (
@@ -175,49 +245,44 @@ export function ParameterMatrix({
             </div>
           )}
 
+          {/* Real launch commands built from actually-discovered launch files
+              — not a generic templated guess at package/file names. */}
           <div className="minimal-card p-5 bg-sand-950 space-y-3">
             <div className="flex items-center justify-between border-b border-sand-800 pb-2">
               <span className="font-bold text-emerald-primary text-xs flex items-center gap-1.5">
                 <Terminal className="h-4 w-4" />
-                ROS 2 Nav2 & SLAM Terminal Launch Execution Commands
+                Discovered Launch Commands
               </span>
-              <span className="text-[10px] text-sand-500">ROS 2 Humble / Jazzy</span>
+              <span className="text-[10px] text-sand-500">{selectedRobot.rosVersion}</span>
             </div>
 
-            <div className="space-y-2 text-[11px]">
-              <div>
-                <span className="text-sand-500">1. Real Robot Mobility Bringup:</span>
-                <pre className="bg-sand-925 p-2 rounded text-emerald-primary mt-1 border border-sand-800 overflow-x-auto">
-                  ros2 launch {selectedRobot.id}_bringup {selectedRobot.id}_robot.launch.py
-                </pre>
+            {selectedRobot.launchFiles.length > 0 ? (
+              <div className="space-y-2 text-[11px]">
+                {selectedRobot.launchFiles.slice(0, 6).map((file, idx) => {
+                  const parts = file.split('/');
+                  const pkg = parts[0] || selectedRobot.id;
+                  const fname = parts[parts.length - 1];
+                  return (
+                    <div key={idx}>
+                      <span className="text-sand-500">{file}</span>
+                      <pre className="bg-sand-925 p-2 rounded text-emerald-primary mt-1 border border-sand-800 overflow-x-auto">
+                        ros2 launch {pkg} {fname}
+                      </pre>
+                    </div>
+                  );
+                })}
+                {selectedRobot.launchFiles.length > 6 && (
+                  <p className="text-sand-600">+ {selectedRobot.launchFiles.length - 6} more — see the Launch Files tab.</p>
+                )}
               </div>
-
-              <div>
-                <span className="text-sand-500">2. Gazebo Simulation Bringup:</span>
-                <pre className="bg-sand-925 p-2 rounded text-emerald-primary mt-1 border border-sand-800 overflow-x-auto">
-                  ros2 launch {selectedRobot.id}_gz {selectedRobot.id}_gz.launch.py
-                </pre>
-              </div>
-
-              <div>
-                <span className="text-sand-500">3. Online Async SLAM Mapping (slam_toolbox):</span>
-                <pre className="bg-sand-925 p-2 rounded text-emerald-primary mt-1 border border-sand-800 overflow-x-auto">
-                  ros2 launch {selectedRobot.id}_slam slam_toolbox_online_async.launch.py
-                </pre>
-              </div>
-
-              <div>
-                <span className="text-sand-500">4. Nav2 Autonomous Navigation Launch:</span>
-                <pre className="bg-sand-925 p-2 rounded text-emerald-primary mt-1 border border-sand-800 overflow-x-auto">
-                  ros2 launch {selectedRobot.id}_navigation navigation.launch.py
-                </pre>
-              </div>
-            </div>
+            ) : (
+              <p className="text-sand-500">No launch files were discovered in this repository.</p>
+            )}
           </div>
         </div>
       )}
 
-      {/* Tab 3: Gazebo System Plugins */}
+      {/* Tab 4: Gazebo System Plugins */}
       {activeTab === 'gazebo' && (
         <div className="p-4 sm:p-6 overflow-x-auto">
           {selectedRobot.gazeboPlugins.length > 0 ? (
@@ -245,51 +310,57 @@ export function ParameterMatrix({
             </table>
           ) : (
             <div className="p-6 rounded-xl border border-dashed border-sand-800 text-center text-sand-500">
-              No `&lt;gazebo&gt;` sensor plugin tags were found in this repository's URDF/Xacro files.
+              No &lt;gazebo&gt; sensor plugin tags were found in this repository's URDF/Xacro files.
             </div>
           )}
         </div>
       )}
 
-      {/* Tab 4: ROS 2 Topics Table */}
+      {/* Tab 5: ROS 2 Topics Table */}
       {activeTab === 'topics' && (
         <div className="p-4 sm:p-6 overflow-x-auto">
-          <table className="w-full text-left font-mono text-xs border-collapse border border-sand-800 rounded-lg overflow-hidden">
-            <thead>
-              <tr className="bg-sand-925 border-b border-sand-800 text-sand-300 font-semibold">
-                <th className="py-2.5 px-3">ROS 2 Topic</th>
-                <th className="py-2.5 px-3">Message Type</th>
-                <th className="py-2.5 px-3">Direction</th>
-                <th className="py-2.5 px-3">Node Owner</th>
-                <th className="py-2.5 px-3">Description</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-sand-800">
-              {selectedRobot.topics.map((t, idx) => (
-                <tr key={idx} className="hover:bg-sand-925/60 transition-colors">
-                  <td className="py-3 px-3 font-bold text-emerald-primary">{t.topic}</td>
-                  <td className="py-3 px-3 text-sand-100 font-medium">{t.type}</td>
-                  <td className="py-3 px-3">
-                    <span className="rounded bg-sand-800 border border-sand-700 px-2 py-0.5 text-[10px] text-sand-300 font-semibold">
-                      {t.direction}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 text-sand-300">{t.nodeOwner}</td>
-                  <td className="py-3 px-3 text-sand-500">{t.description}</td>
+          {selectedRobot.topics.length > 0 ? (
+            <table className="w-full text-left font-mono text-xs border-collapse border border-sand-800 rounded-lg overflow-hidden">
+              <thead>
+                <tr className="bg-sand-925 border-b border-sand-800 text-sand-300 font-semibold">
+                  <th className="py-2.5 px-3">ROS 2 Topic</th>
+                  <th className="py-2.5 px-3">Message Type</th>
+                  <th className="py-2.5 px-3">Direction</th>
+                  <th className="py-2.5 px-3">Node Owner</th>
+                  <th className="py-2.5 px-3">Description</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-sand-800">
+                {selectedRobot.topics.map((t, idx) => (
+                  <tr key={idx} className="hover:bg-sand-925/60 transition-colors">
+                    <td className="py-3 px-3 font-bold text-emerald-primary">{t.topic}</td>
+                    <td className="py-3 px-3 text-sand-100 font-medium">{t.type}</td>
+                    <td className="py-3 px-3">
+                      <span className="rounded bg-sand-800 border border-sand-700 px-2 py-0.5 text-[10px] text-sand-300 font-semibold">
+                        {t.direction}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-sand-300">{t.nodeOwner}</td>
+                    <td className="py-3 px-3 text-sand-500">{t.description}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="p-6 rounded-xl border border-dashed border-sand-800 text-center text-sand-500">
+              No ROS 2 topics could be inferred — no sensors or Gazebo plugins were detected to derive them from.
+            </div>
+          )}
         </div>
       )}
 
-      {/* Tab 5: Launch Architecture */}
+      {/* Tab 6: Launch Architecture */}
       {activeTab === 'launch' && (
         <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-6 font-mono text-xs">
           <div className="minimal-card p-5">
-            <h3 className="font-bold text-sand-50 text-sm mb-3">ROS 2 Launch Registry</h3>
+            <h3 className="font-bold text-sand-50 text-sm mb-3">ROS 2 Launch Registry ({selectedRobot.launchFiles.length})</h3>
             {selectedRobot.launchFiles.length > 0 ? (
-              <ul className="space-y-2 text-sand-300">
+              <ul className="space-y-2 text-sand-300 max-h-96 overflow-y-auto">
                 {selectedRobot.launchFiles.map((file, idx) => (
                   <li key={idx} className="flex items-center justify-between p-2 rounded bg-sand-950 border border-sand-800 gap-2">
                     <span className="text-emerald-primary font-semibold truncate">{file}</span>
@@ -307,27 +378,46 @@ export function ParameterMatrix({
             )}
           </div>
 
-          <div className="minimal-card p-5">
-            <h3 className="font-bold text-sand-50 text-sm mb-3">Chassis Physical Parameters</h3>
-            <div className="space-y-2 text-sand-300">
-              <div className="flex justify-between py-1 border-b border-sand-800">
-                <span>Total Robot Mass:</span>
-                <span className="text-sand-50 font-bold">{selectedRobot.chassis.totalMassKg} kg</span>
+          <div className="minimal-card p-5 space-y-4">
+            <div>
+              <h3 className="font-bold text-sand-50 text-sm mb-3">Chassis Physical Parameters</h3>
+              <div className="space-y-2 text-sand-300">
+                <div className="flex justify-between py-1 border-b border-sand-800">
+                  <span>Total Robot Mass:</span>
+                  <NotDetermined value={selectedRobot.chassis.totalMassKg} unit="kg" />
+                </div>
+                <div className="flex justify-between py-1 border-b border-sand-800">
+                  <span>Dimensions (L x W x H):</span>
+                  {selectedRobot.chassis.length != null && selectedRobot.chassis.width != null && selectedRobot.chassis.height != null ? (
+                    <span className="text-sand-50 font-bold">
+                      {selectedRobot.chassis.length}m x {selectedRobot.chassis.width}m x {selectedRobot.chassis.height}m
+                    </span>
+                  ) : <span className="text-amber-600 font-semibold">Not determined</span>}
+                </div>
+                <div className="flex justify-between py-1 border-b border-sand-800">
+                  <span>Wheelbase Width:</span>
+                  <NotDetermined value={selectedRobot.chassis.wheelbase} unit="m" />
+                </div>
+                <div className="flex justify-between py-1">
+                  <span>Wheel Radius:</span>
+                  <NotDetermined value={selectedRobot.chassis.wheelRadius} unit="m" />
+                </div>
               </div>
-              <div className="flex justify-between py-1 border-b border-sand-800">
-                <span>Dimensions (L x W x H):</span>
-                <span className="text-sand-50 font-bold">
-                  {selectedRobot.chassis.length}m x {selectedRobot.chassis.width}m x {selectedRobot.chassis.height}m
-                </span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-sand-800">
-                <span>Wheelbase Width:</span>
-                <span className="text-sand-50 font-bold">{selectedRobot.chassis.wheelbase} m</span>
-              </div>
-              <div className="flex justify-between py-1">
-                <span>Wheel Radius:</span>
-                <span className="text-sand-50 font-bold">{selectedRobot.chassis.wheelRadius} m</span>
-              </div>
+            </div>
+            <div>
+              <h3 className="font-bold text-sand-50 text-sm mb-3">YAML Config Files ({selectedRobot.yamlConfigFiles.length})</h3>
+              {selectedRobot.yamlConfigFiles.length > 0 ? (
+                <ul className="space-y-1.5 text-sand-300 max-h-40 overflow-y-auto">
+                  {selectedRobot.yamlConfigFiles.slice(0, 20).map((file, idx) => (
+                    <li key={idx} className="p-1.5 rounded bg-sand-950 border border-sand-800 truncate" title={file}>{file}</li>
+                  ))}
+                  {selectedRobot.yamlConfigFiles.length > 20 && (
+                    <li className="text-sand-600">+ {selectedRobot.yamlConfigFiles.length - 20} more</li>
+                  )}
+                </ul>
+              ) : (
+                <p className="text-sand-500">No YAML config files detected.</p>
+              )}
             </div>
           </div>
         </div>

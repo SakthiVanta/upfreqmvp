@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { StreamHud } from '@/components/agent/stream-hud';
 import { RobotDetailExplorer } from '@/components/dashboard/robot-detail-explorer';
-import { createDynamicRobotProfileFromUrl, RobotProfile } from '@/lib/andino-data';
+import { createDynamicRobotProfileFromUrl, RobotProfile } from '@/lib/robot-profile';
 import { saveRobotToLibrary } from '@/lib/robot-library';
 import { useAuth } from '@/lib/auth-context';
 import {

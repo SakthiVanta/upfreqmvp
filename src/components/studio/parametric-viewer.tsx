@@ -6,7 +6,7 @@ import { OrbitControls, Grid, PerspectiveCamera } from '@react-three/drei';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import * as THREE from 'three';
 import { useAuth } from '@/lib/auth-context';
-import { RobotProfile } from '@/lib/andino-data';
+import { RobotProfile } from '@/lib/robot-profile';
 import { getRobotLibrary } from '@/lib/robot-library';
 import {
   Sliders, Download, Copy, Check, RotateCcw, Box, Eye, Radio, FileCode,
@@ -386,32 +386,39 @@ function ParametricViewerLoaded({ robot }: { robot: RobotProfile }) {
     const lidar = r.sensors.find(s => s.type.includes('Laser') || s.type.includes('LiDAR')) || r.sensors[0];
     const camera = r.sensors.find(s => s.type.includes('Camera') || s.type.includes('RGB')) || r.sensors[1] || r.sensors[0];
 
+    // Zeros here are neutral internal placeholders only — never another
+    // robot's real coordinates, and the canvas gate below never renders
+    // them to the user unless the chassis geometry is actually complete.
     return {
-      chassisLength: r.chassis.length,
-      chassisWidth: r.chassis.width,
-      chassisHeight: r.chassis.height,
-      wheelbase: r.chassis.wheelbase,
-      wheelRadius: r.chassis.wheelRadius,
-      massKg: r.chassis.totalMassKg,
-      cogX: r.chassis.centerOfGravity?.x || 0.0,
-      cogY: r.chassis.centerOfGravity?.y || 0.0,
-      cogZ: r.chassis.centerOfGravity?.z || 0.05,
-      lidarX: lidar?.position.x || 0.0666,
-      lidarY: lidar?.position.y || 0.0,
-      lidarZ: lidar?.position.z || 0.0848,
+      chassisLength: r.chassis.length ?? 0,
+      chassisWidth: r.chassis.width ?? 0,
+      chassisHeight: r.chassis.height ?? 0,
+      wheelbase: r.chassis.wheelbase ?? 0,
+      wheelRadius: r.chassis.wheelRadius ?? 0,
+      massKg: r.chassis.totalMassKg ?? 0,
+      cogX: r.chassis.centerOfGravity?.x ?? 0.0,
+      cogY: r.chassis.centerOfGravity?.y ?? 0.0,
+      cogZ: r.chassis.centerOfGravity?.z ?? 0.0,
+      lidarX: lidar?.position?.x ?? 0,
+      lidarY: lidar?.position?.y ?? 0,
+      lidarZ: lidar?.position?.z ?? 0,
       lidarFovDeg: 360,
       lidarMaxRangeM: 12.0,
-      cameraX: camera?.position.x || 0.0980,
-      cameraY: camera?.position.y || 0.0,
-      cameraZ: camera?.position.z || 0.0250,
-      cameraPitchDeg: camera?.orientation?.p || 0,
-      cameraYawDeg: camera?.orientation?.y || 0,
-      maxVelX: r.chassis.maxSpeedLinearMs || 0.5,
-      maxVelTheta: r.chassis.maxSpeedAngularRads || 1.0,
+      cameraX: camera?.position?.x ?? 0,
+      cameraY: camera?.position?.y ?? 0,
+      cameraZ: camera?.position?.z ?? 0,
+      cameraPitchDeg: camera?.orientation?.p ?? 0,
+      cameraYawDeg: camera?.orientation?.y ?? 0,
+      maxVelX: r.chassis.maxSpeedLinearMs ?? 0.5,
+      maxVelTheta: r.chassis.maxSpeedAngularRads ?? 1.0,
       maxAccelX: 2.5,
       frictionCoeff: 0.85
     };
   };
+
+  const hasChassisGeometry = (r: RobotProfile) =>
+    r.chassis.length != null && r.chassis.width != null && r.chassis.height != null &&
+    r.chassis.wheelbase != null && r.chassis.wheelRadius != null;
 
   const getMeshUrls = (r: RobotProfile) => {
     const lidar = r.sensors.find(s => s.type.includes('Laser') || s.type.includes('LiDAR'));
@@ -575,6 +582,24 @@ function ParametricViewerLoaded({ robot }: { robot: RobotProfile }) {
           ))}
         </div>
       </div>
+
+      {!hasChassisGeometry(activeRobot) ? (
+        <div className="minimal-card p-12 text-center space-y-4">
+          <div className="h-12 w-12 rounded-xl bg-sand-800 flex items-center justify-center mx-auto text-amber-500">
+            <Box className="h-6 w-6" />
+          </div>
+          <div className="max-w-lg mx-auto space-y-2">
+            <h2 className="text-lg font-bold text-sand-50">Chassis Dimensions Not Determined</h2>
+            <p className="text-xs text-sand-500 font-mono leading-relaxed">
+              {activeRobot.name}'s length, width, height, wheelbase, or wheel radius could not be resolved from this repository — often because they're defined via Xacro properties loaded from a separate YAML file the analysis couldn't confidently trace. Rendering a 3D model would mean guessing its shape, so nothing is shown here rather than a placeholder that looks like real geometry.
+            </p>
+            <p className="text-xs text-sand-600 font-mono pt-2">
+              Check the Kinematics tab in the Agent Workspace for exactly which fields are missing.
+            </p>
+          </div>
+        </div>
+      ) : (
+      <>
 
       {!isDefaultAndino(activeRobot) && !lidarMeshUrl && !cameraMeshUrl && (
         <div className="minimal-card p-3.5 flex items-center gap-2.5 text-xs font-mono text-sand-400">
@@ -874,6 +899,9 @@ function ParametricViewerLoaded({ robot }: { robot: RobotProfile }) {
         </div>
 
       </div>
+
+      </>
+      )}
 
     </div>
   );

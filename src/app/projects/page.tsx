@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import {
   FolderPlus, Layers, Plus, Trash2, GitFork, X, Globe
 } from 'lucide-react';
-import { RobotProfile } from '@/lib/andino-data';
+import { RobotProfile } from '@/lib/robot-profile';
 
 interface ProjectRepo {
   id: string;

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { createDynamicRobotProfileFromUrl } from '@/lib/andino-data';
+import { createDynamicRobotProfileFromUrl } from '@/lib/robot-profile';
 import { saveRobotToLibrary } from '@/lib/robot-library';
 import { GithubIcon } from '@/components/ui/github-icon';
 import { StreamHud } from '@/components/agent/stream-hud';

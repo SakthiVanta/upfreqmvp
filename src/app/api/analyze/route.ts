@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { saveRobotProfile } from '@/lib/neon-db';
-import { createDynamicRobotProfileFromUrl } from '@/lib/andino-data';
+import { createDynamicRobotProfileFromUrl } from '@/lib/robot-profile';
+import { runAgenticAnalysis, AgenticAnalysisResult } from '@/lib/gemini-agent';
 
 export const runtime = 'nodejs';
 
@@ -132,6 +133,141 @@ function resolveMeshUrl(
   }
 
   return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${meshPath.replace(/^\//, '')}`;
+}
+
+function parseXyz(str: string) {
+  const parts = str.trim().split(/\s+/).map(Number);
+  return { x: parts[0] || 0, y: parts[1] || 0, z: parts[2] || 0 };
+}
+
+function parseRpy(str: string) {
+  const parts = str.trim().split(/\s+/).map(Number);
+  return { r: parts[0] || 0, p: parts[1] || 0, y: parts[2] || 0 };
+}
+
+// Deterministic regex-based fallback — used only when the Gemini agent is
+// unavailable (no API key, quota, network error) so an audit still
+// completes. Materially less accurate than the agent (see known false
+// positives noted inline) but keeps the app functional without an LLM.
+async function regexFallbackParse(
+  owner: string,
+  repo: string,
+  targetBranch: string,
+  urdfFiles: Array<{ path: string }>,
+  tree: Array<{ path: string; type: string; url: string }>,
+  sendEvent: (data: Record<string, any>) => void
+) {
+  const parsedSensors: any[] = [];
+  const detectedGazeboPlugins: any[] = [];
+
+  for (const urdfFile of urdfFiles) {
+    sendEvent({ stage: 'PARSING_URDF', log: `[Fallback parser] Extracting joint transforms from ${urdfFile.path}...` });
+
+    const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${targetBranch}/${urdfFile.path}`;
+    try {
+      const rawRes = await fetch(rawUrl);
+      if (rawRes.ok) {
+        const urdfText = await rawRes.text();
+
+        if (urdfText.includes('<gazebo') || urdfText.includes('libignition') || urdfText.includes('libgazebo') || urdfText.includes('gz-sim')) {
+          if (urdfText.includes('sensors-system') || urdfText.includes('gpu_lidar') || urdfText.includes('ray')) {
+            detectedGazeboPlugins.push({
+              name: "Ignition/Gazebo GPU LiDAR Sensor System",
+              targetLink: "rplidar_laser_link",
+              sensorType: "gpu_lidar",
+              pluginSystem: "libignition-gazebo-sensors-system.so",
+              rosTopic: "/scan",
+              rosMessageType: "sensor_msgs/msg/LaserScan"
+            });
+          }
+          if (urdfText.includes('diff_drive') || urdfText.includes('diff-drive')) {
+            detectedGazeboPlugins.push({
+              name: "Ignition/Gazebo DiffDrive Actuator Controller",
+              targetLink: "base_link",
+              sensorType: "actuator_controller",
+              pluginSystem: "ignition-gazebo-diff-drive-system",
+              rosTopic: "/cmd_vel",
+              rosMessageType: "geometry_msgs/msg/Twist"
+            });
+          }
+        }
+
+        // Real joint match only — when the regex can't confidently find the
+        // sensor's own joint (as opposed to some other joint that merely
+        // mentions the keyword), report the sensor as detected-but-unlocated
+        // rather than filling in another robot's coordinates.
+        if (urdfText.includes('rplidar') || urdfText.includes('laser') || urdfText.includes('lidar') || urdfText.includes('scan')) {
+          const jointMatch = urdfText.match(/joint name="[^"]*(?:rplidar|laser|lidar)[^"]*"[\s\S]*?<origin xyz="([^"]+)" rpy="([^"]+)"/i);
+          const meshUrl = jointMatch ? resolveMeshUrl(urdfText, jointMatch.index || 0, owner, repo, targetBranch, urdfFile.path, tree) : null;
+          parsedSensors.push({
+            id: "rplidar-a1",
+            name: "SLAMTEC RPLidar A1M8 (2D Scanner)",
+            type: "2D Laser Scanner (LiDAR)",
+            linkName: "rplidar_laser_link",
+            parentLink: "lidar_base_link",
+            position: jointMatch ? parseXyz(jointMatch[1]) : null,
+            orientation: jointMatch ? parseRpy(jointMatch[2]) : null,
+            frameId: "rplidar_laser_link",
+            collisionType: "Cylinder (r=0.015m, l=0.01m)",
+            sourceFile: urdfFile.path,
+            estimated: !jointMatch,
+            meshUrl
+          });
+        }
+
+        if (urdfText.includes('camera')) {
+          const jointMatch = urdfText.match(/joint name="[^"]*camera[^"]*"[\s\S]*?<origin xyz="([^"]+)" rpy="([^"]+)"/i);
+          const meshUrl = jointMatch ? resolveMeshUrl(urdfText, jointMatch.index || 0, owner, repo, targetBranch, urdfFile.path, tree) : null;
+          parsedSensors.push({
+            id: "camera-v2",
+            name: "Raspberry Pi Camera Module V2",
+            type: "8MP RGB USB/CSI Camera",
+            linkName: "camera_link",
+            parentLink: "base_link",
+            position: jointMatch ? parseXyz(jointMatch[1]) : null,
+            orientation: jointMatch ? parseRpy(jointMatch[2]) : null,
+            frameId: "camera_link",
+            collisionType: "Box (0.02m x 0.02m x 0.02m)",
+            sourceFile: urdfFile.path,
+            estimated: !jointMatch,
+            meshUrl
+          });
+        }
+
+        if (urdfText.includes('imu')) {
+          const jointMatch = urdfText.match(/joint name="[^"]*imu[^"]*"[\s\S]*?<origin xyz="([^"]+)" rpy="([^"]+)"/i);
+          parsedSensors.push({
+            id: "imu-mpu6050",
+            name: "InvenSense MPU6050 6-DOF IMU",
+            type: "6-Axis Inertial Measurement Unit",
+            linkName: "imu_link",
+            parentLink: "base_link",
+            position: jointMatch ? parseXyz(jointMatch[1]) : null,
+            orientation: jointMatch ? parseRpy(jointMatch[2]) : null,
+            frameId: "imu_link",
+            collisionType: "Box",
+            sourceFile: urdfFile.path,
+            estimated: !jointMatch
+          });
+        }
+      }
+    } catch (e) {
+      // Ignore fetch error for this one file
+    }
+  }
+
+  // No repo-wide fallback either: if regex found nothing, sensors stays
+  // empty — never substituted with another robot's sensor list.
+  const uniqueSensors = parsedSensors.filter((s, idx, self) => self.findIndex(t => t.id === s.id) === idx);
+  const noSensorsDetected = uniqueSensors.length === 0;
+
+  return {
+    sensors: uniqueSensors,
+    gazeboPlugins: detectedGazeboPlugins,
+    noSensorsDetected,
+    chassis: null as any,
+    chassisEstimatedFields: ['length', 'width', 'height', 'wheelbase', 'wheelRadius', 'totalMassKg'],
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -271,149 +407,83 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Step 5: Parse ALL URDF/XACRO Files across Nested Sub-Packages, Gazebo Plugins & Mesh References
-        const parsedSensors: any[] = [];
-        const detectedGazeboPlugins: any[] = [];
-        let hasGazeboPluginsInDescription = false;
+        // Step 5: Real agentic analysis via Gemini (sensors, chassis, gazebo
+        // plugins, topics) — falls back to the regex parser only if the
+        // agent is unavailable, so an audit always completes.
+        let agentResult: AgenticAnalysisResult | null = null;
+        let agentError: string | null = null;
 
-        for (const urdfFile of urdfFiles) {
-          sendEvent({ stage: 'PARSING_URDF', log: `Extracting 3D joint transforms, sensors & mesh references from nested URDF: ${urdfFile.path}...` });
+        // URDF/Xacro first (the geometry lives there), then YAML (property
+        // resolution), then package.xml/launch — if a huge repo forces
+        // truncation, drop the least load-bearing files first.
+        const relevantPaths = [...urdfFiles, ...yamlConfigFiles, ...packageXmlFiles, ...launchFiles]
+          .map(f => f.path)
+          .filter((p, idx, self) => self.indexOf(p) === idx)
+          .slice(0, 250);
 
-          const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${targetBranch}/${urdfFile.path}`;
-          try {
-            const rawRes = await fetch(rawUrl);
-            if (rawRes.ok) {
-              const urdfText = await rawRes.text();
+        sendEvent({ stage: 'AGENT_START', log: `Handing ${relevantPaths.length} relevant file(s) to the Gemini agent for real tool-use analysis...` });
 
-              if (urdfText.includes('<gazebo') || urdfText.includes('libignition') || urdfText.includes('libgazebo') || urdfText.includes('gz-sim')) {
-                hasGazeboPluginsInDescription = true;
-
-                // Extract Gazebo GPU Lidar System Plugin
-                if (urdfText.includes('sensors-system') || urdfText.includes('gpu_lidar') || urdfText.includes('ray')) {
-                  detectedGazeboPlugins.push({
-                    name: "Ignition/Gazebo GPU LiDAR Sensor System",
-                    targetLink: "rplidar_laser_link",
-                    sensorType: "gpu_lidar",
-                    pluginSystem: "libignition-gazebo-sensors-system.so",
-                    rosTopic: "/scan",
-                    rosMessageType: "sensor_msgs/msg/LaserScan"
-                  });
-                }
-
-                // Extract Gazebo DiffDrive Actuator Controller Plugin
-                if (urdfText.includes('diff_drive') || urdfText.includes('diff-drive')) {
-                  detectedGazeboPlugins.push({
-                    name: "Ignition/Gazebo DiffDrive Actuator Controller",
-                    targetLink: "base_link",
-                    sensorType: "actuator_controller",
-                    pluginSystem: "ignition-gazebo-diff-drive-system",
-                    rosTopic: "/cmd_vel",
-                    rosMessageType: "geometry_msgs/msg/Twist"
-                  });
-                }
-              }
-
-              // Extract RPLidar / Laser Scanner
-              if (urdfText.includes('rplidar') || urdfText.includes('laser') || urdfText.includes('lidar') || urdfText.includes('scan')) {
-                const jointMatch = urdfText.match(/joint name="[^"]*(?:rplidar|laser|lidar)[^"]*"[\s\S]*?<origin xyz="([^"]+)" rpy="([^"]+)"/i);
-                const meshUrl = jointMatch ? resolveMeshUrl(urdfText, jointMatch.index || 0, owner, repo, targetBranch, urdfFile.path, tree) : null;
-                parsedSensors.push({
-                  id: "rplidar-a1",
-                  name: "SLAMTEC RPLidar A1M8 (2D Scanner)",
-                  type: "2D Laser Scanner (LiDAR)",
-                  linkName: "rplidar_laser_link",
-                  parentLink: "lidar_base_link",
-                  position: jointMatch ? parseXyz(jointMatch[1]) : { x: 0.0666, y: 0.0, z: 0.084808 },
-                  orientation: jointMatch ? parseRpy(jointMatch[2]) : { r: 0, p: 0, y: 3.14159 },
-                  frameId: "rplidar_laser_link",
-                  collisionType: "Cylinder (r=0.015m, l=0.01m)",
-                  mass: 0.10,
-                  sourceFile: urdfFile.path,
-                  meshUrl
-                });
-              }
-
-              // Extract Camera
-              if (urdfText.includes('camera')) {
-                const jointMatch = urdfText.match(/joint name="[^"]*camera[^"]*"[\s\S]*?<origin xyz="([^"]+)" rpy="([^"]+)"/i);
-                const meshUrl = jointMatch ? resolveMeshUrl(urdfText, jointMatch.index || 0, owner, repo, targetBranch, urdfFile.path, tree) : null;
-                parsedSensors.push({
-                  id: "camera-v2",
-                  name: "Raspberry Pi Camera Module V2",
-                  type: "8MP RGB USB/CSI Camera",
-                  linkName: "camera_link",
-                  parentLink: "base_link",
-                  position: jointMatch ? parseXyz(jointMatch[1]) : { x: 0.0980, y: 0.0, z: 0.0250 },
-                  orientation: jointMatch ? parseRpy(jointMatch[2]) : { r: 0, p: 0, y: 0 },
-                  frameId: "camera_link",
-                  collisionType: "Box (0.02m x 0.02m x 0.02m)",
-                  mass: 0.10,
-                  sourceFile: urdfFile.path,
-                  meshUrl
-                });
-              }
-
-              // Extract IMU Sensor
-              if (urdfText.includes('imu')) {
-                const jointMatch = urdfText.match(/joint name="[^"]*imu[^"]*"[\s\S]*?<origin xyz="([^"]+)" rpy="([^"]+)"/i);
-                parsedSensors.push({
-                  id: "imu-mpu6050",
-                  name: "InvenSense MPU6050 6-DOF IMU",
-                  type: "6-Axis Inertial Measurement Unit",
-                  linkName: "imu_link",
-                  parentLink: "base_link",
-                  position: jointMatch ? parseXyz(jointMatch[1]) : { x: 0.0, y: 0.0, z: 0.030 },
-                  orientation: jointMatch ? parseRpy(jointMatch[2]) : { r: 0, p: 0, y: 0 },
-                  frameId: "imu_link",
-                  collisionType: "Box",
-                  mass: 0.02,
-                  sourceFile: urdfFile.path
-                });
-              }
-            }
-          } catch (e) {
-            // Ignore fetch error
-          }
+        try {
+          agentResult = await runAgenticAnalysis(owner, repo, targetBranch, relevantPaths, (log) => {
+            sendEvent({ stage: 'AGENT_STEP', log });
+          });
+        } catch (err: any) {
+          agentError = err.message;
+          sendEvent({ stage: 'AGENT_FALLBACK', log: `Gemini agent unavailable (${agentError}) — falling back to heuristic regex parsing for sensors/chassis/plugins.` });
         }
 
-        // Deduplicate sensors & plugins
-        const uniqueSensors = parsedSensors.filter((s, idx, self) => self.findIndex(t => t.id === s.id) === idx);
-        const usedFallbackSensors = uniqueSensors.length === 0;
-        if (usedFallbackSensors) {
-          uniqueSensors.push(
-            {
-              id: "rplidar-a1",
-              name: "SLAMTEC RPLidar A1M8",
-              type: "2D Laser Scanner (LiDAR)",
-              linkName: "rplidar_laser_link",
-              parentLink: "lidar_base_link",
-              position: { x: 0.0666, y: 0.0, z: 0.084808 },
-              orientation: { r: 0.0, p: 0.0, y: 3.14159 },
-              frameId: "rplidar_laser_link",
-              collisionType: "Cylinder",
-              mass: 0.10
-            },
-            {
-              id: "camera-v2",
-              name: "Raspberry Pi Camera Module V2",
-              type: "8MP RGB Camera",
-              linkName: "camera_link",
-              parentLink: "base_link",
-              position: { x: 0.0980, y: 0.0, z: 0.0250 },
-              orientation: { r: 0.0, p: 0.0, y: 0.0 },
-              frameId: "camera_link",
-              collisionType: "Box",
-              mass: 0.10
-            }
-          );
+        let uniqueSensors: any[];
+        let detectedGazeboPlugins: any[];
+        let noSensorsDetected: boolean;
+        let chassis: any = null;
+        let chassisEstimatedFields: string[] = [];
+
+        if (agentResult) {
+          // The agent's function schema requires numeric values even for
+          // fields it couldn't confidently resolve (it lists those in
+          // estimatedFields / marks sensor.estimated) — strip those specific
+          // guessed numbers to null here so nothing downstream ever renders
+          // a fabricated value as if it were real.
+          uniqueSensors = agentResult.sensors.map((s, idx) => ({
+            id: `${s.linkName || s.name}-${idx}`.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+            name: s.name,
+            type: s.type,
+            linkName: s.linkName,
+            parentLink: s.parentLink,
+            position: s.estimated ? null : s.position,
+            orientation: s.estimated ? null : s.orientation,
+            frameId: s.frameId,
+            collisionType: undefined,
+            mass: undefined,
+            sourceFile: s.sourceFile,
+            estimated: s.estimated,
+            meshUrl: null,
+          }));
+          detectedGazeboPlugins = agentResult.gazeboPlugins;
+          noSensorsDetected = uniqueSensors.length === 0;
+          const agentEstimated = new Set(agentResult.chassis?.estimatedFields || []);
+          chassis = agentResult.chassis
+            ? Object.fromEntries(
+                Object.entries(agentResult.chassis)
+                  .filter(([k]) => k !== 'estimatedFields')
+                  .map(([k, v]) => [k, agentEstimated.has(k) ? null : v])
+              )
+            : null;
+          chassisEstimatedFields = agentResult.chassis?.estimatedFields || [];
+        } else {
+          const fallback = await regexFallbackParse(owner, repo, targetBranch, urdfFiles, tree, sendEvent);
+          uniqueSensors = fallback.sensors;
+          detectedGazeboPlugins = fallback.gazeboPlugins;
+          noSensorsDetected = fallback.noSensorsDetected;
+          chassisEstimatedFields = fallback.chassisEstimatedFields;
         }
 
         const hasLidar = uniqueSensors.some(s => s.type.includes('LiDAR') || s.type.includes('Laser'));
-        const hasCamera = uniqueSensors.some(s => s.type.includes('Camera'));
-        const hasImu = uniqueSensors.some(s => s.type.includes('IMU'));
+        const hasCamera = uniqueSensors.some(s => s.type.toLowerCase().includes('camera'));
 
         // Step 6: Classify Final Autonomy Modules from REAL codebase evidence
-        // (package.xml dependencies + launch/YAML file paths — no hardcoded verdicts)
+        // (package.xml dependencies + launch/YAML file paths — deterministic,
+        // no LLM needed since this is a straightforward evidence lookup)
         sendEvent({ stage: 'AUDITING_NAV2', log: `Cross-referencing ${parsedPackages.length} package manifests and ${launchFiles.length + yamlConfigFiles.length} launch/config files against known autonomy-stack signatures...` });
 
         const autonomyModules = classifyAutonomyModules(parsedPackages, launchFiles, yamlConfigFiles, hasCamera, repo);
@@ -433,8 +503,8 @@ export async function POST(req: NextRequest) {
         }
         if (hasCamera) {
           sensorToModuleMappings.push({
-            sensorName: uniqueSensors.find(s => s.type.includes('Camera'))!.name,
-            sensorType: "8MP RGB Camera",
+            sensorName: uniqueSensors.find(s => s.type.toLowerCase().includes('camera'))!.name,
+            sensorType: "RGB Camera",
             outputTopic: "/camera/image_raw",
             consumerNodes: [implementedModuleNames.has('Perception') ? 'image_proc' : '(no perception node found)'],
             processingStage: "Debayering & Rectification → Visual Pipeline",
@@ -495,22 +565,17 @@ export async function POST(req: NextRequest) {
           activeBranch: targetBranch,
           analyzedAt: new Date().toISOString(),
           isRosRepo: true,
-          robotName: repo.charAt(0).toUpperCase() + repo.slice(1),
-          rosVersion: "ROS 2 Humble / Iron / Rolling",
+          robotName: agentResult?.robotName || repo.charAt(0).toUpperCase() + repo.slice(1),
+          rosVersion: agentResult?.rosVersion || "ROS 2 Humble / Iron / Rolling",
           packages: parsedPackages,
           sensors: uniqueSensors,
-          usedFallbackSensors,
-          gazeboPlugins: detectedGazeboPlugins.length > 0 ? detectedGazeboPlugins : (usedFallbackSensors ? [
-            {
-              name: "Ignition GPU LiDAR System",
-              targetLink: "rplidar_laser_link",
-              sensorType: "gpu_lidar",
-              pluginSystem: "libignition-gazebo-sensors-system.so",
-              rosTopic: "/scan",
-              rosMessageType: "sensor_msgs/msg/LaserScan"
-            }
-          ] : []),
-          topics: [
+          noSensorsDetected,
+          usedAgenticAnalysis: !!agentResult,
+          agentReasoningSummary: agentResult?.reasoningSummary || null,
+          chassis,
+          chassisEstimatedFields,
+          gazeboPlugins: detectedGazeboPlugins,
+          topics: agentResult?.topics?.length ? agentResult.topics : [
             ...(hasLidar ? [{ topic: "/scan", type: "sensor_msgs/msg/LaserScan", direction: "Publisher" as const, nodeOwner: "lidar_driver", description: "2D laser scan for SLAM & Nav2" }] : []),
             ...(hasCamera ? [{ topic: "/image_raw", type: "sensor_msgs/msg/Image", direction: "Publisher" as const, nodeOwner: "camera_driver", description: "Raw RGB camera stream" }] : []),
             { topic: "/cmd_vel", type: "geometry_msgs/msg/Twist", direction: "Subscriber" as const, nodeOwner: "diff_drive_controller", description: "Motor drive velocity command" },
@@ -531,9 +596,9 @@ export async function POST(req: NextRequest) {
             })),
           launchFiles: launchFiles.map(f => f.path),
           yamlConfigFiles: yamlConfigFiles.map(f => f.path),
-          diagnosticsNotice: usedFallbackSensors
-            ? `Parsed ${parsedPackages.length} ROS 2 sub-package(s) and ${urdfFiles.length} URDF file(s), but no LiDAR/camera/IMU joints were pattern-matched — showing placeholder sensor geometry. Autonomy module classification below is still evidence-based.`
-            : `Discovered ${parsedPackages.length} nested ROS 2 sub-package(s), ${uniqueSensors.length} sensor(s), and classified ${autonomyModules.length} autonomy modules from real package/launch/YAML evidence for '${owner}/${repo}'.`
+          diagnosticsNotice: agentResult
+            ? `Gemini agentic analysis: ${agentResult.toolCallCount} tool call(s) across the repo. ${agentResult.reasoningSummary}`
+            : `Heuristic fallback parser (Gemini unavailable: ${agentError}): discovered ${parsedPackages.length} ROS 2 sub-package(s), ${uniqueSensors.length} sensor(s). Chassis dimensions could not be determined by this parser and are not shown.`
         };
 
         // Persist the full profile (same shape the client renders) to Neon.
@@ -566,14 +631,4 @@ export async function POST(req: NextRequest) {
       'Connection': 'keep-alive',
     },
   });
-}
-
-function parseXyz(str: string) {
-  const parts = str.trim().split(/\s+/).map(Number);
-  return { x: parts[0] || 0, y: parts[1] || 0, z: parts[2] || 0 };
-}
-
-function parseRpy(str: string) {
-  const parts = str.trim().split(/\s+/).map(Number);
-  return { r: parts[0] || 0, p: parts[1] || 0, y: parts[2] || 0 };
 }
