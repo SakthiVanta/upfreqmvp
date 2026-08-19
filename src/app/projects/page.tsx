@@ -11,6 +11,7 @@ import { saveRobotToLibrary } from '@/lib/robot-library';
 import { useAuth } from '@/lib/auth-context';
 import { StreamHud } from '@/components/agent/stream-hud';
 import { RobotDetailExplorer } from '@/components/dashboard/robot-detail-explorer';
+import { CodebaseReview } from '@/components/dashboard/codebase-review';
 
 interface ProjectRepo {
   id: string;
@@ -480,6 +481,18 @@ export default function ProjectsPage() {
                 {!isAuditingThis && streamError && lastAuditProjectId === p.id && (
                   <div className="bg-rose-50 border border-rose-200 p-3 rounded-lg text-xs font-mono text-rose-700">
                     <span className="font-bold">AUDIT NOTICE: </span>{streamError}
+                  </div>
+                )}
+
+                {/* Codebase Review — the two-thing AI summary shown as soon as
+                    a codebase has been audited: which robots it defines, and
+                    a fixed, restricted autonomy-feature checklist. */}
+                {p.isAudited && p.auditedRobotProfile && (
+                  <div className="pt-4 border-t border-sand-800 space-y-4">
+                    <div className="text-xs font-bold text-sand-100 uppercase tracking-wider font-mono">
+                      Codebase Review
+                    </div>
+                    <CodebaseReview robot={p.auditedRobotProfile} />
                   </div>
                 )}
 

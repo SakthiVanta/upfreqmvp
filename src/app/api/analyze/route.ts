@@ -93,6 +93,124 @@ function classifyAutonomyModules(
   });
 }
 
+// Distinct robot models this codebase actually defines — read directly off
+// real URDF/Xacro entry-point filenames (e.g. turtlebot3_burger.urdf.xacro,
+// turtlebot3_waffle.urdf.xacro, turtlebot3_waffle_pi.urdf.xacro all living
+// side by side in one *_description package). Deliberately excludes files
+// that are clearly shared macro/include fragments rather than a standalone
+// robot definition, so a package with one robot but several helper xacro
+// files doesn't get reported as multiple robots.
+const URDF_FRAGMENT_TOKENS = ['macro', 'common', 'materials', 'gazebo', 'sensors', 'sensor', 'include', 'transmission', 'ros2_control', 'plugin', 'imu', 'lidar', 'camera'];
+
+function detectRobotVariants(urdfFiles: Array<{ path: string }>, fallbackName: string): string[] {
+  const candidates = urdfFiles.filter(f => {
+    const basename = (f.path.split('/').pop() || '').toLowerCase();
+    return !URDF_FRAGMENT_TOKENS.some(t => basename.includes(t));
+  });
+
+  const names = candidates
+    .map(f => (f.path.split('/').pop() || '').replace(/\.urdf\.xacro$/i, '').replace(/\.xacro$/i, '').replace(/\.urdf$/i, ''))
+    .filter(n => n.length > 0);
+
+  const unique = Array.from(new Set(names));
+  return unique.length > 0 ? unique : [fallbackName];
+}
+
+interface AutonomyFeatureCheck {
+  key: string;
+  label: string;
+  present: boolean;
+  evidence: string;
+  subChecks?: AutonomyFeatureCheck[];
+}
+
+// The user-facing "Codebase Review" checklist — deliberately a small, fixed
+// set (not the broader autonomyModules breakdown) reusing the same
+// deterministic evidence already gathered above, so it stays consistent
+// with the full Parameter Matrix rather than re-deriving its own answer.
+function buildCodebaseReview(
+  autonomyModules: ReturnType<typeof classifyAutonomyModules>,
+  parsedPackages: any[],
+  launchFiles: Array<{ path: string }>,
+  yamlConfigFiles: Array<{ path: string }>,
+  uniqueSensors: any[],
+  detectedGazeboPlugins: any[]
+): AutonomyFeatureCheck[] {
+  const byName = (n: string) => autonomyModules.find(m => m.name === n);
+  const implemented = (n: string) => (byName(n) ? byName(n)!.status !== 'Missing / Unreferenced' : false);
+
+  const allDeps = parsedPackages.flatMap(p => p.dependencies.map((d: string) => d.toLowerCase()));
+  const depHas = (...kws: string[]) => allDeps.some(d => kws.some(k => d.includes(k)));
+  const allFiles = [...launchFiles, ...yamlConfigFiles];
+  const pathHas = (...kws: string[]) => allFiles.some(f => kws.some(k => f.path.toLowerCase().includes(k)));
+  const gazeboHas = (...kws: string[]) => detectedGazeboPlugins.some(p => kws.some(k => `${p.name} ${p.pluginSystem} ${p.sensorType}`.toLowerCase().includes(k)));
+
+  const sensorPipelinePresent = uniqueSensors.length > 0 || detectedGazeboPlugins.some(p => p.sensorType !== 'actuator_controller');
+  const motorControlPresent = depHas('ros2_control', 'diff_drive_controller', 'controller_manager') || gazeboHas('diff-drive', 'diff_drive', 'diffdrive');
+  const stateEstimationPresent = depHas('robot_localization', 'ekf') || pathHas('ekf', 'odom', 'localization') || gazeboHas('diff-drive', 'diff_drive', 'diffdrive');
+
+  return [
+    {
+      key: 'sensorPipeline',
+      label: 'Sensor Pipeline',
+      present: sensorPipelinePresent,
+      evidence: uniqueSensors.length > 0
+        ? `${uniqueSensors.length} sensor(s) resolved from real URDF joints: ${uniqueSensors.slice(0, 3).map((s: any) => s.name).join(', ')}.`
+        : detectedGazeboPlugins.some(p => p.sensorType !== 'actuator_controller')
+          ? `${detectedGazeboPlugins.length} Gazebo sensor plugin(s) declared in the URDF/SDF.`
+          : 'No sensor joints or Gazebo sensor plugins were found anywhere in this repository.',
+    },
+    {
+      key: 'motorControl',
+      label: 'Motor Control',
+      present: motorControlPresent,
+      evidence: motorControlPresent
+        ? 'A ros2_control / diff_drive_controller dependency or a Gazebo DiffDrive plugin was found.'
+        : 'No ros2_control, diff_drive_controller dependency, or DiffDrive plugin was found in this repository.',
+    },
+    {
+      key: 'stateEstimation',
+      label: 'State Estimation (Odometry)',
+      present: stateEstimationPresent,
+      evidence: stateEstimationPresent
+        ? 'A robot_localization/EKF dependency, an odometry/localization config file, or a Gazebo DiffDrive plugin (which publishes /odom) was found.'
+        : 'No robot_localization/EKF dependency, odometry config, or odometry-publishing plugin was found.',
+    },
+    {
+      key: 'slam',
+      label: 'SLAM',
+      present: implemented('SLAM'),
+      evidence: byName('SLAM')?.evidence || 'Not evaluated.',
+    },
+    {
+      key: 'localization',
+      label: 'Localization',
+      present: implemented('Localization'),
+      evidence: byName('Localization')?.evidence || 'Not evaluated.',
+    },
+    {
+      key: 'navigation',
+      label: 'Navigation',
+      present: implemented('Navigation'),
+      evidence: byName('Navigation')?.evidence || 'Not evaluated.',
+      subChecks: [
+        {
+          key: 'pathPlanning',
+          label: 'Path Planning',
+          present: implemented('Path Planning'),
+          evidence: byName('Path Planning')?.evidence || 'Not evaluated.',
+        },
+        {
+          key: 'motionPlanning',
+          label: 'Motion Planning (Nav2)',
+          present: implemented('Obstacle Avoidance'),
+          evidence: byName('Obstacle Avoidance')?.evidence || 'Not evaluated.',
+        },
+      ],
+    },
+  ];
+}
+
 function resolveMeshUrl(
   urdfText: string,
   nearIndex: number,
@@ -489,6 +607,13 @@ export async function POST(req: NextRequest) {
         const autonomyModules = classifyAutonomyModules(parsedPackages, launchFiles, yamlConfigFiles, hasCamera, repo);
         const implementedModuleNames = new Set(autonomyModules.filter(m => m.status !== 'Missing / Unreferenced').map(m => m.name));
 
+        // Codebase Review: the two-part summary shown right after connecting
+        // a repo — which robot models it actually defines (from real URDF
+        // filenames) and a fixed, restricted autonomy-feature checklist
+        // (not the full autonomyModules breakdown above).
+        const robotVariants = detectRobotVariants(urdfFiles, agentResult?.robotName || repo.charAt(0).toUpperCase() + repo.slice(1));
+        const codebaseReview = buildCodebaseReview(autonomyModules, parsedPackages, launchFiles, yamlConfigFiles, uniqueSensors, detectedGazeboPlugins);
+
         // Step 7: Build Sensor-to-Module Mapping & Data-Flow Pipeline from what was ACTUALLY detected
         const sensorToModuleMappings: any[] = [];
         if (hasLidar) {
@@ -584,6 +709,8 @@ export async function POST(req: NextRequest) {
           sensorToModuleMappings,
           dataFlowPipeline,
           autonomyModules,
+          robotVariants,
+          codebaseReview,
           navigationStack: parsedPackages
             .filter(p => /nav|slam|control|localiz/i.test(p.name))
             .map(p => ({

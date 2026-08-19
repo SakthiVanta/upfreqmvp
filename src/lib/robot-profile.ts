@@ -94,6 +94,14 @@ export interface PackageRecord {
   folderPath: string;
 }
 
+export interface AutonomyFeatureCheck {
+  key: string;
+  label: string;
+  present: boolean;
+  evidence: string;
+  subChecks?: AutonomyFeatureCheck[];
+}
+
 export interface RobotProfile {
   id: string;
   name: string;
@@ -148,6 +156,10 @@ export interface RobotProfile {
     edges: DataFlowEdge[];
   };
   autonomyModules: AutonomyModuleClassification[];
+  /** Distinct robot models this codebase actually defines, read from real URDF/Xacro entry-point filenames — not a fixed/known-robots list. */
+  robotVariants: string[];
+  /** Fixed, restricted autonomy-feature checklist shown on the Codebase Review — sensor pipeline, motor control, state estimation, SLAM, localization, navigation (with path/motion planning sub-checks). */
+  codebaseReview: AutonomyFeatureCheck[];
   navigationStack: Nav2ConfigRecord[];
   environments: EnvironmentConfig[];
   externalDependencies: ExternalRepoDependency[];
@@ -223,6 +235,8 @@ export function createDynamicRobotProfileFromUrl(repoUrl: string, parsedData?: a
     sensorToModuleMappings,
     dataFlowPipeline,
     autonomyModules,
+    robotVariants: parsedData?.robotVariants ?? [],
+    codebaseReview: parsedData?.codebaseReview ?? [],
     navigationStack: parsedData?.navigationStack ?? [],
     environments: parsedData?.environments ?? [],
     externalDependencies: parsedData?.externalDependencies ?? [],
