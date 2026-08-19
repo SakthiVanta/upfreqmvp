@@ -191,7 +191,33 @@ export default function ProjectDetailPage() {
         </div>
       </div>
 
+      {/* Codebase Review is the primary content of this page — which robots
+          this codebase defines and its autonomy-feature checklist. Shown
+          first and prominently; repo setup and the audit trigger are
+          secondary and sit below. Parameter Matrix / 3D Studio / full
+          deep-dive explorer are out of scope for Phase 1. */}
+      {project.isAudited && project.auditedRobotProfile ? (
+        <div className="minimal-card p-5 sm:p-6 space-y-4">
+          <div className="text-sm font-bold text-sand-100 uppercase tracking-wider">
+            Codebase Review
+          </div>
+          <CodebaseReview robot={project.auditedRobotProfile} />
+        </div>
+      ) : (
+        <div className="minimal-card p-8 sm:p-10 text-center space-y-2">
+          <h2 className="text-base font-bold text-sand-50">Not Audited Yet</h2>
+          <p className="text-xs text-sand-500 max-w-sm mx-auto">
+            Run the AI audit below to see which robots this codebase defines and its autonomy feature checklist.
+          </p>
+        </div>
+      )}
+
+      {/* Secondary: repository setup and the audit trigger. */}
       <div className="minimal-card p-5 sm:p-6 space-y-5 text-xs">
+        <div className="text-[11px] font-bold text-sand-500 uppercase tracking-wider">
+          Repository Setup
+        </div>
+
         <div className="flex flex-col sm:flex-row gap-2">
           <input
             type="url"
@@ -251,19 +277,6 @@ export default function ProjectDetailPage() {
         {!isAuditing && streamError && (
           <div className="bg-rose-50 border border-rose-200 p-3 rounded-lg text-rose-700">
             <span className="font-bold">AUDIT NOTICE: </span>{streamError}
-          </div>
-        )}
-
-        {/* Codebase Review — the two-thing AI summary: which robots this
-            codebase defines, and a fixed autonomy-feature checklist.
-            Parameter Matrix / 3D Studio / full deep-dive explorer are out
-            of scope for Phase 1 and stay out of this page for now. */}
-        {project.isAudited && project.auditedRobotProfile && (
-          <div className="pt-4 border-t border-sand-800 space-y-4">
-            <div className="text-xs font-bold text-sand-100 uppercase tracking-wider">
-              Codebase Review
-            </div>
-            <CodebaseReview robot={project.auditedRobotProfile} />
           </div>
         )}
       </div>
