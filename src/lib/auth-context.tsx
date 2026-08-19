@@ -42,17 +42,50 @@ const AuthContext = createContext<AuthContextType>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [activeAnalysis, setActiveAnalysis] = useState<any | null>(null);
-  const [selectedRobot, setSelectedRobot] = useState<RobotProfile | null>(null);
-  const [ingestedRepoUrl, setIngestedRepoUrl] = useState<string>('');
+  const [selectedRobot, setSelectedRobotState] = useState<RobotProfile | null>(null);
+  const [ingestedRepoUrl, setIngestedRepoUrlState] = useState<string>('');
 
   useEffect(() => {
+    // Restore User
     const savedUser = localStorage.getItem('upfreq_user');
     if (savedUser) {
       try {
         setUser(JSON.parse(savedUser));
       } catch (e) {}
     }
+
+    // Restore Selected Robot Profile across page navigations & refreshes
+    const savedRobot = localStorage.getItem('upfreq_selected_robot');
+    if (savedRobot) {
+      try {
+        setSelectedRobotState(JSON.parse(savedRobot));
+      } catch (e) {}
+    }
+
+    // Restore Ingested Repo URL
+    const savedUrl = localStorage.getItem('upfreq_ingested_repo_url');
+    if (savedUrl) {
+      setIngestedRepoUrlState(savedUrl);
+    }
   }, []);
+
+  const setSelectedRobot = (robot: RobotProfile | null) => {
+    setSelectedRobotState(robot);
+    if (robot) {
+      localStorage.setItem('upfreq_selected_robot', JSON.stringify(robot));
+    } else {
+      localStorage.removeItem('upfreq_selected_robot');
+    }
+  };
+
+  const setIngestedRepoUrl = (url: string) => {
+    setIngestedRepoUrlState(url);
+    if (url) {
+      localStorage.setItem('upfreq_ingested_repo_url', url);
+    } else {
+      localStorage.removeItem('upfreq_ingested_repo_url');
+    }
+  };
 
   const loginWithGithub = () => {
     const newUser: User = {
@@ -81,9 +114,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setUser(null);
     setActiveAnalysis(null);
-    setSelectedRobot(null);
-    setIngestedRepoUrl('');
+    setSelectedRobotState(null);
+    setIngestedRepoUrlState('');
     localStorage.removeItem('upfreq_user');
+    localStorage.removeItem('upfreq_selected_robot');
+    localStorage.removeItem('upfreq_ingested_repo_url');
   };
 
   return (

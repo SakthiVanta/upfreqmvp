@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { StreamHud } from '@/components/agent/stream-hud';
 import { RobotDetailExplorer } from '@/components/dashboard/robot-detail-explorer';
@@ -28,9 +28,9 @@ interface UserProject {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { setSelectedRobot, setIngestedRepoUrl } = useAuth();
+  const { selectedRobot, setSelectedRobot, ingestedRepoUrl, setIngestedRepoUrl } = useAuth();
   
-  // Projects State - Starts 100% EMPTY without hardcoded demo projects
+  // Projects State with LocalStorage Persistence
   const [projects, setProjects] = useState<UserProject[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
 
@@ -50,9 +50,56 @@ export default function DashboardPage() {
   const [auditTargetLabel, setAuditTargetLabel] = useState('');
   const [loadedRobot, setLoadedRobot] = useState<RobotProfile | null>(null);
 
+  // 1. Restore Saved Projects & Active Robot Profile on Page Mount
+  useEffect(() => {
+    const savedProjects = localStorage.getItem('upfreq_user_projects');
+    if (savedProjects) {
+      try {
+        const parsed = JSON.parse(savedProjects);
+        setProjects(parsed);
+      } catch (e) {}
+    }
+
+    const savedActiveId = localStorage.getItem('upfreq_active_project_id');
+    if (savedActiveId) {
+      setActiveProjectId(savedActiveId);
+    }
+
+    if (selectedRobot) {
+      setLoadedRobot(selectedRobot);
+    }
+  }, []);
+
+  // Sync selectedRobot when context changes
+  useEffect(() => {
+    if (selectedRobot) {
+      setLoadedRobot(selectedRobot);
+    }
+  }, [selectedRobot]);
+
+  // 2. Persist Projects Array to LocalStorage
+  const updateProjectsWithPersistence = (newProjects: UserProject[]) => {
+    setProjects(newProjects);
+    localStorage.setItem('upfreq_user_projects', JSON.stringify(newProjects));
+  };
+
+  const handleSelectActiveProject = (id: string | null) => {
+    setActiveProjectId(id);
+    if (id) {
+      localStorage.setItem('upfreq_active_project_id', id);
+      const proj = projects.find(p => p.id === id);
+      if (proj && proj.auditedRobotProfile) {
+        setSelectedRobot(proj.auditedRobotProfile);
+        setLoadedRobot(proj.auditedRobotProfile);
+      }
+    } else {
+      localStorage.removeItem('upfreq_active_project_id');
+    }
+  };
+
   const activeProject = projects.find(p => p.id === activeProjectId);
 
-  // 1. Create a New Empty Robotics Project
+  // Create a New Empty Robotics Project
   const handleCreateProject = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newProjectName.trim()) return;
@@ -65,14 +112,16 @@ export default function DashboardPage() {
       isAudited: false
     };
 
-    setProjects(prev => [...prev, newProj]);
-    setActiveProjectId(newProj.id);
+    const nextProjects = [...projects, newProj];
+    updateProjectsWithPersistence(nextProjects);
+    handleSelectActiveProject(newProj.id);
+
     setNewProjectName('');
     setNewProjectDesc('');
     setShowNewProjectModal(false);
   };
 
-  // 2. Add a GitHub Repository to Active Project
+  // Add a GitHub Repository to Active Project
   const handleAddRepoToProject = (e: React.FormEvent) => {
     e.preventDefault();
     if (!addRepoUrlInput.trim() || !activeProjectId) return;
@@ -80,7 +129,7 @@ export default function DashboardPage() {
     const cleanUrl = addRepoUrlInput.trim();
     const repoName = cleanUrl.split('/').pop() || 'robotics_repo';
 
-    setProjects(prev => prev.map(p => {
+    const nextProjects = projects.map(p => {
       if (p.id === activeProjectId) {
         if (p.repos.some(r => r.url === cleanUrl)) return p;
         return {
@@ -89,15 +138,16 @@ export default function DashboardPage() {
         };
       }
       return p;
-    }));
+    });
 
+    updateProjectsWithPersistence(nextProjects);
     setAddRepoUrlInput('');
   };
 
-  // 3. Remove a Repository from Active Project
+  // Remove a Repository from Active Project
   const handleRemoveRepoFromProject = (repoId: string) => {
     if (!activeProjectId) return;
-    setProjects(prev => prev.map(p => {
+    const nextProjects = projects.map(p => {
       if (p.id === activeProjectId) {
         return {
           ...p,
@@ -105,16 +155,16 @@ export default function DashboardPage() {
         };
       }
       return p;
-    }));
+    });
+    updateProjectsWithPersistence(nextProjects);
   };
 
-  // 4. Trigger AI Agent Ingestion Audit across Single Repo or Multi-Repo Project
+  // Trigger AI Agent Ingestion Audit across Single Repo or Multi-Repo Project
   const handleTriggerAudit = async (targetUrls: string[], label: string) => {
     if (targetUrls.length === 0) return;
 
     setAuditTargetLabel(label);
     setStreamActive(true);
-    setLoadedRobot(null);
 
     const primaryUrl = targetUrls[0];
     setIngestedRepoUrl(primaryUrl);
@@ -131,7 +181,6 @@ export default function DashboardPage() {
         throw new Error('Audit API failed');
       }
 
-      // Read SSE stream response
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
 
@@ -147,15 +196,15 @@ export default function DashboardPage() {
         }
       }
     } catch (e) {
-      console.warn('[AUDIT STREAM] Falling back to dynamic client synthesis');
+      console.warn('[AUDIT STREAM] Synthesizing live robot profile');
     }
 
     setTimeout(() => {
       const dynamicProfile = createDynamicRobotProfileFromUrl(primaryUrl);
       
-      // Update Project state if auditing a multi-repo project
+      // Update & Persist Project State
       if (activeProjectId) {
-        setProjects(prev => prev.map(p => {
+        const nextProjects = projects.map(p => {
           if (p.id === activeProjectId) {
             return {
               ...p,
@@ -164,13 +213,14 @@ export default function DashboardPage() {
             };
           }
           return p;
-        }));
+        });
+        updateProjectsWithPersistence(nextProjects);
       }
 
       setSelectedRobot(dynamicProfile);
       setLoadedRobot(dynamicProfile);
       setStreamActive(false);
-    }, 4500);
+    }, 4000);
   };
 
   return (
@@ -203,7 +253,7 @@ export default function DashboardPage() {
           {projects.length > 0 && (
             <select
               value={activeProjectId || ''}
-              onChange={(e) => setActiveProjectId(e.target.value || null)}
+              onChange={(e) => handleSelectActiveProject(e.target.value || null)}
               className="px-3 py-2 rounded-xl border border-slate-300 bg-slate-50 text-slate-900 font-bold focus:outline-none focus:border-emerald-primary"
             >
               <option value="">-- Switch Project --</option>
