@@ -5,25 +5,25 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { createDynamicRobotProfileFromUrl } from '@/lib/andino-data';
+import { saveRobotToLibrary } from '@/lib/robot-library';
 import { GithubIcon } from '@/components/ui/github-icon';
 import { StreamHud } from '@/components/agent/stream-hud';
 import { RobotDetailExplorer } from '@/components/dashboard/robot-detail-explorer';
-import { 
-  Cpu, Layers, Box, ArrowRight, ShieldCheck, Terminal, Play, 
-  Loader2, Compass, Lock, Activity, Check, Zap, FileCode, Radio,
-  Server, GitBranch, Eye, Sliders, Shield, Globe, ChevronRight,
-  TrendingUp, Award, HelpCircle, CheckCircle, Info
+import {
+  Cpu, Layers, Box, Terminal, Play,
+  Loader2, Compass, HelpCircle,
+  Award, Workflow
 } from 'lucide-react';
 
 export default function HomePage() {
   const router = useRouter();
-  const { isAuthenticated, loginWithGithub, setActiveAnalysis } = useAuth();
+  const { isAuthenticated, loginWithGithub, selectedRobot, setSelectedRobot, setIngestedRepoUrl } = useAuth();
 
-  const [repoUrl, setRepoUrl] = useState('https://github.com/Ekumen-OS/andino');
+  const [repoUrl, setRepoUrl] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [streamLogs, setStreamLogs] = useState<string[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [activeShowcaseTab, setActiveShowcaseTab] = useState<'3d' | 'sse' | 'nav2' | 'isaac'>('3d');
+  const [activeShowcaseTab, setActiveShowcaseTab] = useState<'3d' | 'pipeline' | 'matrix' | 'autonomy'>('3d');
 
   const handleStartAnalysis = async () => {
     if (!isAuthenticated) {
@@ -72,10 +72,13 @@ export default function HomePage() {
               }
 
               if (data.stage === 'COMPLETE' && data.result) {
-                setActiveAnalysis(data.result);
+                const profile = createDynamicRobotProfileFromUrl(repoUrl, data.result);
+                setSelectedRobot(profile);
+                setIngestedRepoUrl(repoUrl);
+                saveRobotToLibrary(profile);
                 setIsAnalyzing(false);
                 setStreamLogs(prev => [...prev, '✓ Database Persisted! Redirecting to Dashboard...']);
-                setTimeout(() => router.push('/dashboard'), 1500);
+                setTimeout(() => router.push('/dashboard'), 1200);
               }
             } catch (e) {}
           }
@@ -91,17 +94,17 @@ export default function HomePage() {
   if (isAuthenticated) {
     return (
       <div className="space-y-6 font-sans">
-        
+
         {/* Repo Ingest Control Bar */}
-        <div className="minimal-card p-6 bg-white border-zinc-200 space-y-4">
-          <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
+        <div className="minimal-card p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-sand-800 pb-3">
             <div className="flex items-center gap-2">
-              <Compass className="h-5 w-5 text-indigo-600" />
-              <h1 className="text-sm font-bold text-zinc-900 uppercase tracking-wider font-mono">
+              <Compass className="h-5 w-5 text-emerald-primary" />
+              <h1 className="text-sm font-bold text-sand-100 uppercase tracking-wider font-mono">
                 Live GitHub Repository Ingestion Engine
               </h1>
             </div>
-            <span className="text-xs font-mono text-indigo-700 bg-indigo-50 px-3 py-1 rounded-md font-bold border border-indigo-100">
+            <span className="text-xs font-mono text-emerald-text bg-emerald-light px-3 py-1 rounded-md font-bold border border-emerald-border">
               Authenticated Session
             </span>
           </div>
@@ -112,12 +115,12 @@ export default function HomePage() {
               value={repoUrl}
               onChange={(e) => setRepoUrl(e.target.value)}
               placeholder="https://github.com/owner/repository"
-              className="flex-1 px-4 py-2.5 rounded-lg border border-zinc-300 bg-zinc-50 font-mono text-xs text-zinc-900 focus:outline-none focus:border-indigo-600 focus:bg-white"
+              className="flex-1 px-4 py-2.5 rounded-lg border border-sand-700 bg-sand-950 font-mono text-xs text-sand-50 focus:outline-none focus:border-emerald-primary min-w-0"
             />
             <button
               onClick={handleStartAnalysis}
-              disabled={isAnalyzing}
-              className="btn-robotics-primary py-2.5 px-6 font-mono text-xs flex items-center justify-center gap-2 shrink-0 disabled:opacity-50"
+              disabled={isAnalyzing || !repoUrl.trim()}
+              className="btn-robotics-primary py-2.5 px-6 font-mono text-xs flex items-center justify-center gap-2 shrink-0 cursor-pointer"
             >
               {isAnalyzing ? (
                 <>
@@ -134,23 +137,23 @@ export default function HomePage() {
           </div>
 
           {errorMessage && (
-            <div className="bg-rose-50 border border-rose-200 p-4 rounded-lg text-xs font-mono text-rose-900">
+            <div className="bg-rose-50 border border-rose-200 p-4 rounded-lg text-xs font-mono text-rose-700">
               <span className="font-bold">ROS VALIDATION ERROR: </span>
               {errorMessage}
             </div>
           )}
 
           {(isAnalyzing || streamLogs.length > 0) && (
-            <div className="minimal-card p-4 bg-zinc-950 text-zinc-100 font-mono text-xs space-y-2">
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                <span className="text-indigo-400 font-bold flex items-center gap-2">
+            <div className="minimal-card p-4 bg-sand-950 text-sand-100 font-mono text-xs space-y-2">
+              <div className="flex items-center justify-between border-b border-sand-800 pb-2">
+                <span className="text-emerald-primary font-bold flex items-center gap-2">
                   <Terminal className="h-4 w-4" />
                   Live SSE Stream Execution Console
                 </span>
               </div>
-              <div className="h-36 overflow-y-auto space-y-1 p-2 bg-zinc-900 rounded border border-zinc-800 text-[11px]">
+              <div className="h-36 overflow-y-auto space-y-1 p-2 bg-sand-925 rounded border border-sand-800 text-[11px]">
                 {streamLogs.map((log, idx) => (
-                  <div key={idx} className="text-zinc-300">
+                  <div key={idx} className="text-sand-300 animate-in fade-in">
                     {log}
                   </div>
                 ))}
@@ -160,59 +163,78 @@ export default function HomePage() {
         </div>
 
         {/* Live Stream HUD */}
-        <StreamHud repoUrl={repoUrl} isStreaming={isAnalyzing} />
+        <StreamHud repoUrl={repoUrl} isStreaming={isAnalyzing} logs={streamLogs} />
 
-        {/* Exhaustive Robot Detail Explorer */}
-        <RobotDetailExplorer robot={createDynamicRobotProfileFromUrl(repoUrl)} />
+        {/* Exhaustive Robot Detail Explorer — only for a repo that was
+            actually analyzed. No fabricated placeholder profile: an
+            unaudited repo shows an honest empty state instead. */}
+        {selectedRobot ? (
+          <RobotDetailExplorer robot={selectedRobot} />
+        ) : !isAnalyzing ? (
+          <div className="minimal-card p-12 text-center space-y-4">
+            <div className="h-16 w-16 mx-auto rounded-2xl bg-sand-800 text-sand-500 flex items-center justify-center">
+              <Compass className="h-8 w-8" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-sand-50 font-sans">
+                Nothing Analyzed Yet
+              </h3>
+              <p className="text-xs text-sand-500 font-mono max-w-md mx-auto">
+                Enter a GitHub repository URL above and run the audit — the pipeline diagram, sensor matrix, and autonomy module classification only appear once real analysis has completed.
+              </p>
+            </div>
+          </div>
+        ) : null}
       </div>
     );
   }
 
   // Production Grade Marketing Landing Page for Unauthenticated Visitors
   return (
-    <div className="space-y-16 font-sans text-zinc-900 -mt-6 pb-20">
-      
-      {/* Marketing Single-Page Header Navbar */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-zinc-200 px-6 py-3.5 flex items-center justify-between">
+    <div className="space-y-16 font-sans text-sand-100 -mt-6 pb-20">
+
+      {/* Marketing Single-Page Header */}
+      <header className="sticky top-0 z-40 bg-sand-950/90 backdrop-blur-md border-b border-sand-800 px-6 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-zinc-900 text-white flex items-center justify-center font-mono font-bold text-sm">
+          <div className="h-8 w-8 rounded-lg bg-emerald-primary text-sand-950 flex items-center justify-center font-mono font-bold text-sm">
             UF
           </div>
-          <span className="font-bold text-base text-zinc-900 tracking-tight">UpFreq Robotics</span>
+          <span className="font-display font-bold text-base text-sand-50 tracking-tight">UpFreq Robotics</span>
         </div>
 
-        <nav className="hidden md:flex items-center gap-8 font-mono text-xs font-semibold text-zinc-600">
-          <a href="#about" className="hover:text-indigo-600 transition-colors">Platform Purpose</a>
-          <a href="#how-to-use" className="hover:text-indigo-600 transition-colors">How To Use</a>
-          <a href="#showcase" className="hover:text-indigo-600 transition-colors">Live Interactive Showcase</a>
-          <a href="#takeaways" className="hover:text-indigo-600 transition-colors">Key Takeaways</a>
+        <nav className="hidden md:flex items-center gap-8 font-mono text-xs font-semibold text-sand-400">
+          <a href="#about" className="hover:text-emerald-primary transition-colors">Platform Purpose</a>
+          <a href="#how-to-use" className="hover:text-emerald-primary transition-colors">How To Use</a>
+          <a href="#showcase" className="hover:text-emerald-primary transition-colors">Live Interactive Showcase</a>
+          <a href="#takeaways" className="hover:text-emerald-primary transition-colors">Key Takeaways</a>
         </nav>
 
         <div className="flex items-center gap-3 font-mono text-xs">
-          <Link href="/login" className="btn-robotics-primary py-2 px-5 text-xs font-bold shadow-xs">
+          <Link href="/login" className="btn-robotics-primary py-2 px-5 text-xs font-bold">
             Sign In to App
           </Link>
         </div>
       </header>
 
-      {/* Hero Section with Clear UX Overview */}
-      <section className="max-w-5xl mx-auto text-center space-y-8 pt-8 px-4">
-        
-        <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight text-zinc-900 leading-[1.15]">
+      {/* Hero Section */}
+      <section className="max-w-5xl mx-auto text-center space-y-8 pt-8 px-4 relative">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-150 h-87.5 bg-emerald-500/10 rounded-full blur-[140px] pointer-events-none -z-10" />
+
+        <h1 className="text-4xl sm:text-6xl font-display font-extrabold tracking-tight text-sand-50 leading-[1.15] animate-in fade-in slide-in-from-bottom-4">
           Agentic ROS 2 Codebase Inspection & <br />
-          <span className="text-indigo-600">
+          <span className="text-emerald-primary">
             Parameter Intelligence Platform
           </span>
         </h1>
 
-        <p className="text-base sm:text-lg text-zinc-600 font-mono max-w-3xl mx-auto leading-relaxed">
-          Connect your robotics GitHub repository to perform real-time ROS/ROS 2 tree validation, parse URDF sensor origins, synthesize Nav2 navigation stacks, and export 3D STL transform models.
+        <p className="text-base sm:text-lg text-sand-400 max-w-3xl mx-auto leading-relaxed font-mono animate-in fade-in slide-in-from-bottom-4 delay-75">
+          Connect your robotics GitHub repository to perform real-time ROS/ROS 2 tree validation, parse URDF sensor origins, classify Nav2 &amp; SLAM autonomy modules from real codebase evidence, and render interactive 3D parametric models.
         </p>
 
-        <div className="flex flex-wrap items-center justify-center gap-4 pt-2 font-mono text-xs">
+        <div className="flex flex-wrap items-center justify-center gap-4 pt-2 font-mono text-xs animate-in fade-in slide-in-from-bottom-4 delay-150">
           <button
             onClick={() => loginWithGithub()}
-            className="btn-robotics-primary py-3.5 px-8 text-sm font-bold shadow-sm flex items-center gap-2.5"
+            className="btn-robotics-primary py-3.5 px-8 text-sm font-bold flex items-center gap-2.5 cursor-pointer"
           >
             <GithubIcon className="h-4.5 w-4.5 fill-current" />
             Connect GitHub OAuth
@@ -220,7 +242,7 @@ export default function HomePage() {
 
           <Link
             href="/login"
-            className="btn-secondary-light py-3.5 px-8 text-sm font-semibold border-zinc-300 hover:border-zinc-400"
+            className="btn-secondary-light py-3.5 px-8 text-sm font-semibold"
           >
             Sign In with Password
           </Link>
@@ -228,308 +250,164 @@ export default function HomePage() {
 
         {/* Clear UX Summary Ribbon */}
         <div id="about" className="pt-8 grid grid-cols-1 md:grid-cols-3 gap-6 text-left font-mono text-xs">
-          <div className="p-5 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2">
-            <div className="flex items-center gap-2 text-indigo-600 font-bold text-sm">
-              <Compass className="h-4.5 w-4.5" />
-              1. What Is This Application?
+          {[
+            { icon: Compass, title: '1. What Is This Application?', body: "An enterprise platform engineered for robotics CTOs & engineers to audit GitHub repositories, extract physical sensor origins, and classify Nav2 & SLAM autonomy modules from real codebase evidence." },
+            { icon: HelpCircle, title: '2. How Do You Use It?', body: "Input your target GitHub repository URL, authorize sign-in, and stream real-time ROS validation logs as URDF transforms and packages are parsed." },
+            { icon: Award, title: '3. What Is The Takeaway?', body: "Zero manual URDF editing — automated parameter matrix extraction, a real evidence-based autonomy pipeline diagram, and a 3D parametric model studio." },
+          ].map(({ icon: Icon, title, body }, i) => (
+            <div key={title} className={`minimal-card p-5 space-y-2 animate-in fade-in slide-in-from-bottom-4 delay-${i === 0 ? '150' : i === 1 ? '300' : '300'}`}>
+              <div className="flex items-center gap-2 text-emerald-primary font-bold text-sm">
+                <Icon className="h-4.5 w-4.5" />
+                {title}
+              </div>
+              <p className="text-sand-400 leading-relaxed text-[11px]">{body}</p>
             </div>
-            <p className="text-zinc-600 leading-relaxed text-[11px]">
-              An enterprise platform engineered for robotics CTOs & engineers to audit GitHub repositories, extract physical sensor origins, and synthesize Nav2 & SLAM configurations.
-            </p>
-          </div>
-
-          <div className="p-5 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2">
-            <div className="flex items-center gap-2 text-indigo-600 font-bold text-sm">
-              <HelpCircle className="h-4.5 w-4.5" />
-              2. How Do You Use It?
-            </div>
-            <p className="text-zinc-600 leading-relaxed text-[11px]">
-              Input your target GitHub repository URL, authorize sign-in, and stream real-time ROS validation logs as URDF transforms and packages are parsed.
-            </p>
-          </div>
-
-          <div className="p-5 rounded-xl bg-white border border-zinc-200 shadow-xs space-y-2">
-            <div className="flex items-center gap-2 text-indigo-600 font-bold text-sm">
-              <Award className="h-4.5 w-4.5" />
-              3. What Is The Takeaway?
-            </div>
-            <p className="text-zinc-600 leading-relaxed text-[11px]">
-              Zero manual URDF editing — instant automated parameter matrix extraction, 3D WebGL STL transform visualizer, and NVIDIA Isaac Sim test automation.
-            </p>
-          </div>
+          ))}
         </div>
       </section>
 
       {/* 3-Step Quick Start Guide Bar */}
       <section id="how-to-use" className="max-w-6xl mx-auto px-4 space-y-6 font-mono text-xs">
         <div className="text-center space-y-2">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-indigo-600">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-primary">
             Quick User Workflow
           </h2>
-          <h3 className="text-2xl font-extrabold text-zinc-900 tracking-tight">
+          <h3 className="text-2xl font-display font-extrabold text-sand-50 tracking-tight">
             Get Started in 3 Simple Steps
           </h3>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="minimal-card p-6 bg-white space-y-3">
-            <div className="h-8 w-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center font-bold text-indigo-600 text-sm">
-              STEP 1
+          {[
+            { step: 'STEP 1', title: 'Submit GitHub Repo URL', body: <>Paste your robotics repository URL (e.g. <code className="bg-sand-800 px-1 py-0.5 rounded text-sand-100">Ekumen-OS/andino</code>) or select a benchmark robot.</> },
+            { step: 'STEP 2', title: 'Stream ROS 2 Validation', body: <>The server validates <code className="bg-sand-800 px-1 py-0.5 rounded text-sand-100">package.xml</code> manifests and streams live XML AST parser logs via Server-Sent Events.</> },
+            { step: 'STEP 3', title: 'Explore Matrix & 3D Studio', body: <>Inspect the parameter matrix, manipulate 3D sensor origins, and export custom <code className="bg-sand-800 px-1 py-0.5 rounded text-sand-100">.urdf.xacro</code> code files.</> },
+          ].map(({ step, title, body }) => (
+            <div key={step} className="minimal-card p-6 space-y-3">
+              <div className="h-8 w-8 rounded-lg bg-emerald-light border border-emerald-border flex items-center justify-center font-bold text-emerald-primary text-sm">
+                {step.slice(-1)}
+              </div>
+              <h4 className="font-bold text-sand-50 text-sm">{title}</h4>
+              <p className="text-sand-400 leading-relaxed">{body}</p>
             </div>
-            <h4 className="font-bold text-zinc-900 text-sm">Submit GitHub Repo URL</h4>
-            <p className="text-zinc-600 leading-relaxed">
-              Paste your robotics repository URL (e.g. <code className="bg-zinc-100 px-1 py-0.5 rounded text-zinc-800">Ekumen-OS/andino</code>) or select a benchmark robot.
-            </p>
-          </div>
-
-          <div className="minimal-card p-6 bg-white space-y-3">
-            <div className="h-8 w-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center font-bold text-indigo-600 text-sm">
-              STEP 2
-            </div>
-            <h4 className="font-bold text-zinc-900 text-sm">Stream ROS 2 Validation</h4>
-            <p className="text-zinc-600 leading-relaxed">
-              The server validates <code className="bg-zinc-100 px-1 py-0.5 rounded text-zinc-800">package.xml</code> manifests and streams live XML AST parser logs via Server-Sent Events.
-            </p>
-          </div>
-
-          <div className="minimal-card p-6 bg-white space-y-3">
-            <div className="h-8 w-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center font-bold text-indigo-600 text-sm">
-              STEP 3
-            </div>
-            <h4 className="font-bold text-zinc-900 text-sm">Explore Matrix & 3D Studio</h4>
-            <p className="text-zinc-600 leading-relaxed">
-              Inspect the 7-layer parameter matrix, manipulate 3D STL sensor origins, and export custom <code className="bg-zinc-100 px-1 py-0.5 rounded text-zinc-800">.urdf.xacro</code> code files.
-            </p>
-          </div>
+          ))}
         </div>
       </section>
 
       {/* Interactive Live Product Showcase Section */}
       <section id="showcase" className="max-w-6xl mx-auto px-4 space-y-8">
         <div className="text-center space-y-3">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-indigo-600 font-mono">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-emerald-primary font-mono">
             Interactive Product Showcase
           </h2>
-          <h3 className="text-3xl font-extrabold text-zinc-900 tracking-tight">
+          <h3 className="text-3xl font-display font-extrabold text-sand-50 tracking-tight">
             See How UpFreq Inspects & Customizes Mobile Robots
           </h3>
         </div>
 
+        <p className="text-center text-[11px] text-sand-600 font-mono -mt-4">
+          Real screenshots from a live audit of <code className="bg-sand-800 px-1 py-0.5 rounded text-sand-300">Ekumen-OS/andino</code> — not mockups.
+        </p>
+
         {/* Showcase Switcher Pills */}
-        <div className="flex justify-center gap-2 font-mono text-xs overflow-x-auto">
-          <button
-            onClick={() => setActiveShowcaseTab('3d')}
-            className={`px-4 py-2.5 rounded-lg font-bold transition-all flex items-center gap-2 ${
-              activeShowcaseTab === '3d'
-                ? 'bg-zinc-900 text-white shadow-xs'
-                : 'bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50'
-            }`}
-          >
-            <Box className="h-4 w-4 text-indigo-400" />
-            1. 3D Studio & Composite STL
-          </button>
-
-          <button
-            onClick={() => setActiveShowcaseTab('sse')}
-            className={`px-4 py-2.5 rounded-lg font-bold transition-all flex items-center gap-2 ${
-              activeShowcaseTab === 'sse'
-                ? 'bg-zinc-900 text-white shadow-xs'
-                : 'bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50'
-            }`}
-          >
-            <Terminal className="h-4 w-4 text-indigo-400" />
-            2. Real-Time SSE Stream Scanner
-          </button>
-
-          <button
-            onClick={() => setActiveShowcaseTab('nav2')}
-            className={`px-4 py-2.5 rounded-lg font-bold transition-all flex items-center gap-2 ${
-              activeShowcaseTab === 'nav2'
-                ? 'bg-zinc-900 text-white shadow-xs'
-                : 'bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50'
-            }`}
-          >
-            <Layers className="h-4 w-4 text-indigo-400" />
-            3. Nav2 & SLAM Parameter Matrix
-          </button>
-
-          <button
-            onClick={() => setActiveShowcaseTab('isaac')}
-            className={`px-4 py-2.5 rounded-lg font-bold transition-all flex items-center gap-2 ${
-              activeShowcaseTab === 'isaac'
-                ? 'bg-zinc-900 text-white shadow-xs'
-                : 'bg-white text-zinc-700 border border-zinc-200 hover:bg-zinc-50'
-            }`}
-          >
-            <Zap className="h-4 w-4 text-indigo-400" />
-            4. NVIDIA Isaac Sim Test Suite
-          </button>
+        <div className="flex justify-start sm:justify-center gap-2 font-mono text-xs overflow-x-auto pb-1">
+          {[
+            { id: '3d' as const, label: '1. 3D Parametric Studio', icon: Box },
+            { id: 'pipeline' as const, label: '2. Data-Flow Pipeline Diagram', icon: Workflow },
+            { id: 'matrix' as const, label: '3. Parameter Matrix', icon: Layers },
+            { id: 'autonomy' as const, label: '4. Autonomy Module Evidence', icon: Cpu },
+          ].map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveShowcaseTab(id)}
+              className={`px-4 py-2.5 rounded-lg font-bold transition-all flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                activeShowcaseTab === id
+                  ? 'bg-emerald-primary text-sand-950'
+                  : 'bg-sand-925 text-sand-300 border border-sand-800 hover:bg-sand-800'
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* Tab 1 Showcase: 3D Studio */}
         {activeShowcaseTab === '3d' && (
-          <div className="minimal-card p-6 bg-white space-y-6">
-            <div className="flex items-center justify-between border-b border-zinc-200 pb-3 font-mono">
-              <div className="flex items-center gap-2">
-                <span className="h-3 w-3 rounded-full bg-rose-500" />
-                <span className="h-3 w-3 rounded-full bg-amber-500" />
-                <span className="h-3 w-3 rounded-full bg-emerald-500" />
-                <span className="text-xs font-bold text-zinc-800 ml-2">
-                  3D WebGL Studio — 5 Composite STL Meshes Loaded Concurrently
-                </span>
-              </div>
-              <span className="text-xs text-indigo-600 font-bold bg-indigo-50 px-3 py-1 rounded-md border border-indigo-100">
-                tf2_ros Transform Tree Active
+          <div className="minimal-card p-3 sm:p-4 space-y-3 animate-in fade-in">
+            <div className="flex items-center justify-between px-2 pt-1 font-mono flex-wrap gap-2">
+              <span className="text-xs font-bold text-sand-100">3D Parametric Studio — real sensor origins, live kinematic sliders</span>
+              <span className="text-xs text-emerald-primary font-bold bg-emerald-light px-3 py-1 rounded-md border border-emerald-border shrink-0">
+                Andino 3D model, live-rendered
               </span>
             </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-              <div className="lg:col-span-7 bg-zinc-950 rounded-xl p-6 text-zinc-100 font-mono text-xs space-y-4 border border-zinc-800">
-                <div className="flex justify-between items-center text-[11px] border-b border-zinc-800 pb-2">
-                  <span className="text-indigo-400 font-bold">REAL GITHUB STL MESHES (Ekumen-OS/andino)</span>
-                  <span className="text-zinc-400">FPS: 60 • WebGL 2.0</span>
-                </div>
-                <div className="h-56 bg-zinc-900 rounded-lg flex flex-col items-center justify-center border border-zinc-800 text-center p-4 relative overflow-hidden">
-                  <div className="absolute top-3 left-3 bg-zinc-950 px-2.5 py-1 rounded text-[10px] text-indigo-400 border border-zinc-800">
-                    odom -&gt; base_link -&gt; rplidar_laser_link
-                  </div>
-                  <Box className="h-12 w-12 text-indigo-500 mb-2 animate-bounce" />
-                  <span className="font-bold text-sm text-zinc-100">Ekumen Andino Composite 3D Model</span>
-                  <span className="text-[11px] text-zinc-400 mt-1">
-                    base_chassis.stl (525KB) • rplidar-a1.stl (314KB) • camera_mount.stl (29KB) • wheel.stl (1.04MB)
-                  </span>
-                </div>
-              </div>
-
-              <div className="lg:col-span-5 space-y-4 font-mono text-xs text-zinc-600">
-                <div className="flex items-center gap-2 font-bold text-zinc-900 text-sm">
-                  <Sliders className="h-4.5 w-4.5 text-indigo-600" />
-                  Live Real-Time Kinematic Manipulation
-                </div>
-                <p className="leading-relaxed">
-                  Adjust sensor origin offsets ($x, y, z, r, p, y$) in real-time. Instantly re-calculates transform trees and exports standard <code className="bg-zinc-100 px-1.5 py-0.5 rounded text-zinc-900">.urdf.xacro</code> code files.
-                </p>
-                <div className="p-3 bg-zinc-50 rounded-lg border border-zinc-200 space-y-2">
-                  <div className="flex justify-between">
-                    <span>LiDAR Height Offset (Z):</span>
-                    <span className="text-indigo-600 font-bold">0.0848 m</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Camera Forward Offset (X):</span>
-                    <span className="text-indigo-600 font-bold">0.0980 m</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/screenshots/studio-3d-viewport.png" alt="UpFreq 3D Parametric Studio showing the Andino robot's real chassis, LiDAR, and camera meshes with TF frames" className="w-full h-auto rounded-xl border border-sand-800" loading="lazy" />
           </div>
         )}
 
-        {/* Tab 2 Showcase: Real-Time SSE Stream Scanner */}
-        {activeShowcaseTab === 'sse' && (
-          <div className="minimal-card p-6 bg-zinc-950 text-zinc-100 font-mono text-xs space-y-4 border-zinc-800">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-              <span className="text-indigo-400 font-bold text-sm flex items-center gap-2">
-                <Terminal className="h-4.5 w-4.5 text-indigo-400" />
-                Live Server-Sent Events (SSE) Stream Execution Log
-              </span>
-              <span className="text-[10px] text-indigo-400 bg-indigo-950 px-2 py-0.5 rounded border border-indigo-800">
-                HTTP Streaming ReadableStream
+        {/* Tab 2 Showcase: Data-Flow Pipeline Diagram */}
+        {activeShowcaseTab === 'pipeline' && (
+          <div className="minimal-card p-3 sm:p-4 space-y-3 animate-in fade-in">
+            <div className="flex items-center justify-between px-2 pt-1 font-mono flex-wrap gap-2">
+              <span className="text-xs font-bold text-sand-100">Interactive node-graph — real sensor→driver→autonomy→control edges</span>
+              <span className="text-xs text-emerald-primary font-bold bg-emerald-light px-3 py-1 rounded-md border border-emerald-border shrink-0">
+                Built with React Flow
               </span>
             </div>
-
-            <div className="h-64 overflow-y-auto space-y-2 p-4 bg-zinc-900 rounded-lg border border-zinc-800 text-[11px] leading-relaxed">
-              <div className="text-zinc-400">[14:28:01] Connecting to GitHub API [Ekumen-OS/andino] on branch 'main'...</div>
-              <div className="text-zinc-400">[14:28:02] Fetched repository file tree: 48 total files discovered.</div>
-              <div className="text-indigo-300 font-bold">[14:28:02] VALID ROS REPOSITORY CONFIRMED! Found package.xml and URDF manifests.</div>
-              <div className="text-zinc-300">[14:28:02] Parsing ROS package manifest: andino_description/package.xml...</div>
-              <div className="text-zinc-300">[14:28:03] Auditing URDF/XACRO kinematics: andino_description/urdf/andino.urdf.xacro...</div>
-              <div className="text-zinc-300">[14:28:03] Extracted sensor link 'rplidar_laser_link' at origin xyz="0.0666 0.0 0.084808".</div>
-              <div className="text-zinc-300">[14:28:03] Auditing Nav2 navigation stack (andino_navigation) & slam_toolbox...</div>
-              <div className="text-emerald-400 font-bold">[14:28:04] ✓ Analysis synthesized and persisted to local database store!</div>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/screenshots/pipeline-diagram.png" alt="UpFreq data-flow pipeline diagram showing real ROS topic connections from LiDAR sensor through the SLAM module to motor control" className="w-full h-auto rounded-xl border border-sand-800" loading="lazy" />
           </div>
         )}
 
-        {/* Tab 3 Showcase: Nav2 Parameter Matrix */}
-        {activeShowcaseTab === 'nav2' && (
-          <div className="minimal-card p-6 bg-white font-mono text-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
-              <span className="font-bold text-zinc-900 text-sm flex items-center gap-2">
-                <Layers className="h-4.5 w-4.5 text-indigo-600" />
-                Synthesized Nav2 Navigation Stack & SLAM Toolbox Matrix
-              </span>
-              <span className="rounded bg-indigo-50 text-indigo-700 px-2.5 py-1 text-xs font-bold border border-indigo-100">
-                100% Parsed
+        {/* Tab 3 Showcase: Parameter Matrix */}
+        {activeShowcaseTab === 'matrix' && (
+          <div className="minimal-card p-3 sm:p-4 space-y-3 animate-in fade-in">
+            <div className="flex items-center justify-between px-2 pt-1 font-mono flex-wrap gap-2">
+              <span className="text-xs font-bold text-sand-100">Synthesized parameter matrix — sensors, Nav2/SLAM, Gazebo plugins, topics</span>
+              <span className="text-xs text-emerald-primary font-bold bg-emerald-light px-3 py-1 rounded-md border border-emerald-border shrink-0">
+                Parsed from real URDF
               </span>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-lg bg-zinc-50 border border-zinc-200 space-y-2">
-                <span className="font-bold text-indigo-600 block text-xs">andino_navigation (Nav2 Stack)</span>
-                <p className="text-zinc-600 text-[11px]">Autonomous path planning, global/local costmaps, and goal navigation.</p>
-                <div className="pt-2 text-[10px] space-y-1 text-zinc-500">
-                  <div>Launch: <code className="text-zinc-900 font-bold">andino_navigation/launch/navigation.launch.py</code></div>
-                  <div>Params: <code className="text-zinc-900 font-bold">andino_navigation/config/nav2_params.yaml</code></div>
-                </div>
-              </div>
-
-              <div className="p-4 rounded-lg bg-zinc-50 border border-zinc-200 space-y-2">
-                <span className="font-bold text-indigo-600 block text-xs">andino_slam (slam_toolbox)</span>
-                <p className="text-zinc-600 text-[11px]">Online asynchronous 2D occupancy grid mapping delegating lifecycle node management.</p>
-                <div className="pt-2 text-[10px] space-y-1 text-zinc-500">
-                  <div>Launch: <code className="text-zinc-900 font-bold">andino_slam/launch/slam_toolbox_online_async.launch.py</code></div>
-                  <div>Solver: <code className="text-zinc-900 font-bold">solver_plugins::CsparseSolver</code></div>
-                </div>
-              </div>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/screenshots/parameter-matrix.png" alt="UpFreq parameter matrix table showing real sensor link names, positions, and orientations parsed from the Andino robot's URDF" className="w-full h-auto rounded-xl border border-sand-800" loading="lazy" />
           </div>
         )}
 
-        {/* Tab 4 Showcase: NVIDIA Isaac Sim */}
-        {activeShowcaseTab === 'isaac' && (
-          <div className="minimal-card p-6 bg-white font-mono text-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-200 pb-3">
-              <span className="font-bold text-zinc-900 text-sm flex items-center gap-2">
-                <Zap className="h-4.5 w-4.5 text-indigo-600" />
-                NVIDIA Isaac Sim WebRTC Hardware-in-the-Loop Test Runner
-              </span>
-              <span className="bg-rose-50 text-rose-700 px-2.5 py-1 rounded text-xs font-bold border border-rose-100">
-                Omniverse PhysX Connected
+        {/* Tab 4 Showcase: Autonomy Module Evidence */}
+        {activeShowcaseTab === 'autonomy' && (
+          <div className="minimal-card p-3 sm:p-4 space-y-3 animate-in fade-in">
+            <div className="flex items-center justify-between px-2 pt-1 font-mono flex-wrap gap-2">
+              <span className="text-xs font-bold text-sand-100">Evidence-based module classification — implemented vs. missing, not guessed</span>
+              <span className="text-xs text-emerald-primary font-bold bg-emerald-light px-3 py-1 rounded-md border border-emerald-border shrink-0">
+                From real package.xml + launch files
               </span>
             </div>
-
-            <div className="p-4 rounded-lg bg-zinc-900 text-zinc-100 space-y-3">
-              <div className="flex justify-between items-center text-[11px] border-b border-zinc-800 pb-2">
-                <span className="text-indigo-400 font-bold">TC-03: NVIDIA Isaac Sim WebRTC HIL Test</span>
-                <span className="text-emerald-400 font-bold">✓ TEST PASSED</span>
-              </div>
-              <pre className="text-[10px] text-zinc-300 bg-zinc-950 p-3 rounded-lg border border-zinc-800">
-                python3 scripts/test_isaac_sim_bridge.py --usd models/andino.usd --physx-step 0.001
-              </pre>
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/screenshots/autonomy-modules.png" alt="UpFreq autonomy module classification showing SLAM and Navigation marked Implemented in Codebase with real evidence, and Localization marked Missing / Unreferenced" className="w-full h-auto rounded-xl border border-sand-800" loading="lazy" />
           </div>
         )}
       </section>
 
       {/* Key Takeaways Section */}
       <section id="takeaways" className="max-w-4xl mx-auto px-4">
-        <div className="minimal-card p-8 bg-zinc-900 text-zinc-100 text-center space-y-6 border-zinc-800">
-          <div className="inline-flex items-center gap-2 bg-indigo-950 border border-indigo-800 px-3.5 py-1 rounded-full text-xs font-mono text-indigo-400 font-bold">
+        <div className="minimal-card p-8 text-center space-y-6">
+          <div className="inline-flex items-center gap-2 bg-emerald-950 border border-emerald-800 px-3.5 py-1 rounded-full text-xs font-mono text-emerald-100 font-bold">
             KEY PLATFORM TAKEAWAYS
           </div>
 
-          <h3 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+          <h3 className="text-2xl sm:text-3xl font-display font-extrabold tracking-tight text-sand-50">
             Automate Robotics Parameter Engineering Today
           </h3>
 
-          <p className="text-xs text-zinc-400 font-mono max-w-xl mx-auto leading-relaxed">
-            Sign in with your GitHub OAuth account or organization credentials to unlock full agentic analysis, Nav2 parameter matrix extraction, and 3D STL customizer.
+          <p className="text-xs text-sand-400 font-mono max-w-xl mx-auto leading-relaxed">
+            Sign in with your GitHub OAuth account or organization credentials to unlock full agentic analysis, evidence-based Nav2/SLAM classification, and the 3D parametric studio.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4 font-mono text-xs">
             <button
               onClick={() => loginWithGithub()}
-              className="btn-robotics-primary py-3.5 px-8 text-sm font-bold flex items-center gap-2.5 shadow-md"
+              className="btn-robotics-primary py-3.5 px-8 text-sm font-bold flex items-center gap-2.5 cursor-pointer"
             >
               <GithubIcon className="h-4.5 w-4.5 fill-current" />
               Sign In with GitHub OAuth
@@ -537,7 +415,7 @@ export default function HomePage() {
 
             <Link
               href="/login"
-              className="px-6 py-3.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white font-semibold border border-zinc-700 transition-all"
+              className="px-6 py-3.5 rounded-lg bg-sand-800 hover:bg-sand-700 text-sand-50 font-semibold border border-sand-700 transition-all"
             >
               Sign In with Password
             </Link>

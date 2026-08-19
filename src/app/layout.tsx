@@ -1,19 +1,26 @@
 import type { Metadata } from 'next';
-import { Inter, JetBrains_Mono } from 'next/font/google';
+import { Inter, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth-context';
 import { AppLayout } from '@/components/layout/app-layout';
 
 const inter = Inter({
   subsets: ['latin'],
-  variable: '--font-sans',
+  variable: '--font-inter',
   weight: ['400', '500', '600', '700', '800'],
+  display: 'swap',
+});
+
+const displayFont = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  variable: '--font-display-family',
+  weight: ['500', '600', '700', '800'],
   display: 'swap',
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
-  variable: '--font-mono',
+  variable: '--font-jetbrains',
   weight: ['400', '500', '600', '700'],
   display: 'swap',
 });
@@ -29,8 +36,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <body className="min-h-full flex flex-col bg-[#f4f4f5] text-slate-900 font-sans antialiased selection:bg-indigo-100 selection:text-indigo-900">
+    <html lang="en" className={`${inter.variable} ${displayFont.variable} ${jetbrainsMono.variable}`}>
+      <body className="min-h-full flex flex-col bg-sand-950 text-sand-50 font-sans antialiased">
         <AuthProvider>
           <AppLayout>
             {children}

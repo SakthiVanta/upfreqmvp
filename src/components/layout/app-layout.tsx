@@ -5,16 +5,24 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { GithubIcon } from '@/components/ui/github-icon';
-import { 
-  Cpu, Layers, Box, LogIn, LogOut, Compass, ChevronLeft, ChevronRight, 
-  ShieldCheck, UserCheck, Terminal, Settings, Menu, X, RefreshCw, Database, FolderPlus
+import {
+  Cpu, Layers, Box, LogOut, ChevronLeft, ChevronRight,
+  Menu, X, RefreshCw, Database, FolderPlus, Bot
 } from 'lucide-react';
+
+const NAV_ITEMS = [
+  { href: '/dashboard', label: '1. Agent Workspace', icon: Cpu },
+  { href: '/matrix', label: '2. Parameter Matrix', icon: Layers },
+  { href: '/studio', label: '3. 3D Parametric Studio', icon: Box },
+  { href: '/robots', label: '4. Robot Library', icon: Bot },
+  { href: '/projects', label: '5. Project Fleet CRUD', icon: FolderPlus },
+];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuth();
-  
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isResettingDb, setIsResettingDb] = useState(false);
@@ -45,21 +53,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 font-sans">
-      
+    <div className="flex h-screen overflow-hidden bg-sand-950 font-sans">
+
       {/* 1. Desktop Left Sidebar */}
-      <aside className={`hidden md:flex bg-slate-900 text-slate-100 flex-col border-r border-slate-800 transition-all duration-300 z-30 ${
+      <aside className={`hidden md:flex bg-sand-925 text-sand-200 flex-col border-r border-sand-800 transition-all duration-300 z-30 ${
         sidebarCollapsed ? 'w-16' : 'w-64'
       }`}>
         {/* Sidebar Header / Brand */}
-        <div className="h-16 px-4 flex items-center justify-between border-b border-slate-800 shrink-0">
+        <div className="h-16 px-4 flex items-center justify-between border-b border-sand-800 shrink-0">
           <Link href="/dashboard" className="flex items-center gap-2.5 overflow-hidden">
-            <div className="h-8 w-8 rounded-lg bg-emerald-primary text-white flex items-center justify-center font-mono font-bold text-sm shrink-0 shadow-xs">
+            <div className="h-8 w-8 rounded-lg bg-emerald-primary text-sand-950 flex items-center justify-center font-mono font-bold text-sm shrink-0 shadow-xs">
               UF
             </div>
             {!sidebarCollapsed && (
               <div className="flex flex-col">
-                <span className="font-bold text-sm text-white tracking-tight leading-none">
+                <span className="font-display font-bold text-sm text-sand-50 tracking-tight leading-none">
                   UpFreq Robotics
                 </span>
                 <span className="text-[10px] text-emerald-400 font-mono mt-0.5">
@@ -71,7 +79,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="p-1.5 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-md text-sand-500 hover:text-sand-50 hover:bg-sand-800 transition-colors cursor-pointer"
           >
             {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </button>
@@ -79,61 +87,31 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
         {/* Sidebar Navigation Items */}
         <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto font-mono text-xs">
-          <Link
-            href="/dashboard"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-semibold transition-all ${
-              pathname === '/dashboard' || pathname === '/'
-                ? 'bg-emerald-primary text-white shadow-xs'
-                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            <Cpu className="h-4 w-4 shrink-0" />
-            {!sidebarCollapsed && <span>1. Agent Workspace</span>}
-          </Link>
-
-          <Link
-            href="/matrix"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-semibold transition-all ${
-              pathname === '/matrix'
-                ? 'bg-emerald-primary text-white shadow-xs'
-                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            <Layers className="h-4 w-4 shrink-0" />
-            {!sidebarCollapsed && <span>2. Parameter Matrix</span>}
-          </Link>
-
-          <Link
-            href="/studio"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-semibold transition-all ${
-              pathname === '/studio'
-                ? 'bg-emerald-primary text-white shadow-xs'
-                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            <Box className="h-4 w-4 shrink-0" />
-            {!sidebarCollapsed && <span>3. 3D Parametric Studio</span>}
-          </Link>
-
-          <Link
-            href="/projects"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-semibold transition-all ${
-              pathname === '/projects'
-                ? 'bg-emerald-primary text-white shadow-xs'
-                : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            <FolderPlus className="h-4 w-4 shrink-0 text-emerald-primary" />
-            {!sidebarCollapsed && <span>4. Project Fleet CRUD</span>}
-          </Link>
+          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+            const active = pathname === href || (href === '/dashboard' && pathname === '/');
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-semibold transition-all ${
+                  active
+                    ? 'bg-emerald-primary text-sand-950 shadow-xs'
+                    : 'text-sand-300 hover:bg-sand-800 hover:text-sand-50'
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {!sidebarCollapsed && <span>{label}</span>}
+              </Link>
+            );
+          })}
         </nav>
 
         {/* User Profile & Logout Section */}
-        <div className="p-3 border-t border-slate-800 bg-slate-950/60 shrink-0 space-y-2">
+        <div className="p-3 border-t border-sand-800 bg-sand-950/60 shrink-0 space-y-2">
           <button
             onClick={handleResetDatabase}
             disabled={isResettingDb}
-            className="w-full py-1.5 px-2 bg-slate-800 hover:bg-rose-950 hover:text-rose-300 text-slate-300 rounded font-mono text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all border border-slate-700"
+            className="w-full py-1.5 px-2 bg-sand-800 hover:bg-rose-950 hover:text-rose-300 text-sand-300 rounded font-mono text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all border border-sand-700 cursor-pointer disabled:opacity-60"
           >
             {isResettingDb ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5 text-rose-400" />}
             {!sidebarCollapsed && <span>Reset DB (Demo User)</span>}
@@ -141,20 +119,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 overflow-hidden">
-              <div className="h-7 w-7 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-emerald-400 shrink-0">
+              <div className="h-7 w-7 rounded-full bg-sand-800 border border-sand-700 flex items-center justify-center font-bold text-xs text-emerald-400 shrink-0">
                 {user?.username?.charAt(0).toUpperCase()}
               </div>
               {!sidebarCollapsed && (
                 <div className="flex flex-col min-w-0">
-                  <span className="text-xs font-bold text-slate-100 truncate">{user?.username}</span>
-                  <span className="text-[10px] text-slate-400 truncate capitalize">{user?.provider} Auth</span>
+                  <span className="text-xs font-bold text-sand-100 truncate">{user?.username}</span>
+                  <span className="text-[10px] text-sand-500 truncate capitalize">{user?.provider} Auth</span>
                 </div>
               )}
             </div>
 
             <button
               onClick={() => { logout(); router.push('/'); }}
-              className="p-1.5 rounded text-slate-400 hover:text-red-400 hover:bg-slate-800 transition-colors"
+              className="p-1.5 rounded text-sand-500 hover:text-red-400 hover:bg-sand-800 transition-colors cursor-pointer"
               title="Sign Out"
             >
               <LogOut className="h-4 w-4" />
@@ -165,57 +143,41 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* 2. Mobile Responsive Slide-Over Navigation Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex flex-col">
-          <div className="bg-slate-900 text-white p-4 flex items-center justify-between border-b border-slate-800">
+        <div className="md:hidden fixed inset-0 z-50 bg-sand-950/90 backdrop-blur-sm flex flex-col animate-in fade-in">
+          <div className="bg-sand-925 text-sand-50 p-4 flex items-center justify-between border-b border-sand-800">
             <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded bg-emerald-primary text-white flex items-center justify-center font-mono font-bold text-xs">
+              <div className="h-7 w-7 rounded bg-emerald-primary text-sand-950 flex items-center justify-center font-mono font-bold text-xs">
                 UF
               </div>
               <span className="font-bold text-sm font-mono">UpFreq Mobile Menu</span>
             </div>
-            <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-slate-400 hover:text-white">
+            <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-sand-400 hover:text-sand-50 cursor-pointer">
               <X className="h-6 w-6" />
             </button>
           </div>
 
-          <nav className="flex-1 p-4 space-y-2 font-mono text-sm">
-            <Link
-              href="/dashboard"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 p-3 rounded-xl bg-slate-800 text-white font-bold"
-            >
-              <Cpu className="h-5 w-5 text-emerald-primary" />
-              1. Agent Workspace
-            </Link>
-            <Link
-              href="/matrix"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 p-3 rounded-xl bg-slate-800 text-white font-bold"
-            >
-              <Layers className="h-5 w-5 text-emerald-primary" />
-              2. Parameter Matrix
-            </Link>
-            <Link
-              href="/studio"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 p-3 rounded-xl bg-slate-800 text-white font-bold"
-            >
-              <Box className="h-5 w-5 text-emerald-primary" />
-              3. 3D Parametric Studio
-            </Link>
-            <Link
-              href="/projects"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 p-3 rounded-xl bg-slate-800 text-white font-bold"
-            >
-              <FolderPlus className="h-5 w-5 text-emerald-primary" />
-              4. Project Fleet CRUD
-            </Link>
+          <nav className="flex-1 p-4 space-y-2 font-mono text-sm overflow-y-auto">
+            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+              const active = pathname === href;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 p-3 rounded-xl font-bold transition-colors ${
+                    active ? 'bg-emerald-primary text-sand-950' : 'bg-sand-800 text-sand-50'
+                  }`}
+                >
+                  <Icon className={`h-5 w-5 ${active ? '' : 'text-emerald-primary'}`} />
+                  {label}
+                </Link>
+              );
+            })}
 
-            <div className="pt-4 border-t border-slate-800 space-y-3">
+            <div className="pt-4 border-t border-sand-800 space-y-3">
               <button
                 onClick={handleResetDatabase}
-                className="w-full py-3 bg-rose-950 text-rose-200 border border-rose-800 rounded-xl font-bold flex items-center justify-center gap-2"
+                className="w-full py-3 bg-rose-950 text-rose-200 border border-rose-800 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Database className="h-4 w-4" />
                 Reset DB to Demo User
@@ -223,7 +185,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
               <button
                 onClick={() => { logout(); router.push('/'); }}
-                className="w-full py-3 bg-slate-800 text-slate-300 rounded-xl font-bold flex items-center justify-center gap-2"
+                className="w-full py-3 bg-sand-800 text-sand-300 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer"
               >
                 <LogOut className="h-4 w-4" />
                 Sign Out
@@ -236,28 +198,28 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* 3. Main Responsive Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto w-full">
         {/* Top Navbar */}
-        <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between shrink-0 sticky top-0 z-20">
-          <div className="flex items-center gap-3">
+        <header className="h-16 bg-sand-925/95 backdrop-blur-md border-b border-sand-800 px-4 sm:px-6 flex items-center justify-between shrink-0 sticky top-0 z-20">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden p-2 text-slate-600 hover:text-slate-900 rounded-lg border border-slate-200"
+              className="md:hidden p-2 text-sand-300 hover:text-sand-50 rounded-lg border border-sand-700 cursor-pointer shrink-0"
             >
               <Menu className="h-5 w-5" />
             </button>
 
             <div className="flex items-center gap-2 truncate">
               <span className="h-2 w-2 rounded-full bg-emerald-primary animate-pulse shrink-0" />
-              <span className="font-mono text-xs font-bold text-slate-900 uppercase tracking-wider truncate">
+              <span className="font-mono text-xs font-bold text-sand-100 uppercase tracking-wider truncate">
                 UpFreq Autonomous Robotics Suite
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 font-mono text-xs">
+          <div className="flex items-center gap-3 font-mono text-xs shrink-0">
             <button
               onClick={handleResetDatabase}
               disabled={isResettingDb}
-              className="hidden sm:flex px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-bold items-center gap-1.5 transition-all"
+              className="hidden sm:flex px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-bold items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60"
             >
               <Database className="h-3.5 w-3.5" />
               Reset DB
@@ -265,7 +227,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
             <button
               onClick={() => { logout(); router.push('/'); }}
-              className="text-slate-600 hover:text-red-600 font-semibold transition-colors flex items-center gap-1 shrink-0"
+              className="text-sand-400 hover:text-red-400 font-semibold transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
             >
               <LogOut className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Sign Out</span>

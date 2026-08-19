@@ -1,4 +1,4 @@
-import { pgTable, varchar, text, timestamp, boolean, integer, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, varchar, text, timestamp, boolean, integer, jsonb, uniqueIndex } from 'drizzle-orm/pg-core';
 
 // 1. Users Table (Email/Password & GitHub OAuth)
 export const users = pgTable('users', {
@@ -32,25 +32,24 @@ export const projectRepositories = pgTable('project_repositories', {
   addedAt: timestamp('added_at').defaultNow().notNull(),
 });
 
-// 4. Analyzed Repositories Cache & AST Storage
-export const analyzedRepositories = pgTable('analyzed_repositories', {
+// 4. Robots — one row per completed audit. `profileJson` holds the full
+// RobotProfile exactly as /api/analyze produces it (sensors, evidence-based
+// autonomy module classification, data-flow pipeline graph, Nav2 stack,
+// topics, chassis) — this is the durable backing store for the Robot
+// Library. Re-auditing the same repo for the same user updates the row
+// in place rather than accumulating duplicates.
+export const robots = pgTable('robots', {
   id: varchar('id', { length: 255 }).primaryKey(),
-  projectId: varchar('project_id', { length: 255 }).references(() => projects.id, { onDelete: 'cascade' }),
+  userId: varchar('user_id', { length: 255 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  projectId: varchar('project_id', { length: 255 }).references(() => projects.id, { onDelete: 'set null' }),
   repoUrl: text('repo_url').notNull(),
   repoName: varchar('repo_name', { length: 255 }).notNull(),
-  rosDistribution: varchar('ros_distribution', { length: 50 }).default('humble'),
-  urdfAstJson: text('urdf_ast_json'),
-  nav2ConfigJson: text('nav2_config_json'),
-  gazeboPluginsJson: text('gazebo_plugins_json'),
-  isaacTestsJson: text('isaac_tests_json'),
-  persistedAt: timestamp('persisted_at').defaultNow().notNull(),
-});
-
-// 5. Saved Parametric Studio Profiles Table
-export const parametricProfiles = pgTable('parametric_profiles', {
-  id: varchar('id', { length: 255 }).primaryKey(),
-  projectId: varchar('project_id', { length: 255 }).references(() => projects.id, { onDelete: 'cascade' }),
-  profileName: varchar('profile_name', { length: 255 }).notNull(),
-  paramsJson: text('params_json').notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+  robotName: varchar('robot_name', { length: 255 }).notNull(),
+  rosVersion: varchar('ros_version', { length: 100 }),
+  sensorCount: integer('sensor_count').notNull().default(0),
+  moduleCount: integer('module_count').notNull().default(0),
+  profileJson: jsonb('profile_json').notNull(),
+  analyzedAt: timestamp('analyzed_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('robots_user_repo_idx').on(table.userId, table.repoUrl),
+]);
