@@ -1,194 +1,122 @@
 @import "tailwindcss";
 
-:root {
-  /* Sand Theme Design Tokens - No pure white, no pure black */
-  --sand-50: #fbf9f5;
-  --sand-100: #f3efe6;
-  --sand-200: #e5decb;
-  --sand-300: #d4c8ad;
-  --sand-400: #b5a484;
-  --sand-500: #968665;
-  --sand-600: #786a4e;
-  --sand-700: #554a37;
-  --sand-800: #332d22;
-  --sand-850: #26221a;
-  --sand-900: #1b1712;
-  --sand-950: #12100c;
-
-  /* Emerald & Sage Accent Tokens */
-  --emerald-300: #6ee7b7;
-  --emerald-400: #34d399;
-  --emerald-500: #10b981;
-  --emerald-600: #059669;
-  --emerald-700: #047857;
-  --emerald-950: #022c22;
-  --sage-400: #a3e635;
-
-  /* Base Semantic Tokens */
-  --background: var(--sand-950);
-  --foreground: var(--sand-100);
-  --card-bg: var(--sand-900);
-  --card-border: rgba(181, 164, 132, 0.16);
-  --card-border-hover: rgba(16, 185, 129, 0.4);
+html {
+  scroll-behavior: smooth;
 }
 
-@theme inline {
-  --color-sand-50: var(--sand-50);
-  --color-sand-100: var(--sand-100);
-  --color-sand-200: var(--sand-200);
-  --color-sand-300: var(--sand-300);
-  --color-sand-400: var(--sand-400);
-  --color-sand-500: var(--sand-500);
-  --color-sand-600: var(--sand-600);
-  --color-sand-700: var(--sand-700);
-  --color-sand-800: var(--sand-800);
-  --color-sand-850: var(--sand-850);
-  --color-sand-900: var(--sand-900);
-  --color-sand-950: var(--sand-950);
+@layer base {
+  :root {
+    --bg-main: #f4f4f5;
+    --surface-card: #ffffff;
+    --border-light: #e4e4e7;
+    --text-primary: #09090b;
+    --text-muted: #71717a;
+    
+    --brand-indigo: #4f46e5;
+    --brand-indigo-hover: #4338ca;
+    --brand-indigo-light: #e0e7ff;
+    --brand-indigo-border: #c7d2fe;
+    --brand-indigo-text: #3730a3;
+  }
 
-  --color-emerald-300: var(--emerald-300);
-  --color-emerald-400: var(--emerald-400);
-  --color-emerald-500: var(--emerald-500);
-  --color-emerald-600: var(--emerald-600);
-  --color-emerald-700: var(--emerald-700);
-  --color-emerald-950: var(--emerald-950);
-
-  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
-  --font-mono: var(--font-jetbrains-mono), monospace;
+  body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  }
 }
 
-body {
-  background-color: var(--sand-950);
-  color: var(--sand-100);
-  font-family: var(--font-sans);
-  overflow-x: hidden;
-  min-height: 100vh;
-  position: relative;
+/* Production Grade Primary Button */
+.btn-robotics-primary,
+.btn-emerald-primary {
+  background-color: var(--brand-indigo);
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 0.625rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Sandy Micro-Texture Overlay */
-.bg-sand-texture {
-  background-color: #12100c;
-  background-image: 
-    radial-gradient(circle at 15% 15%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
-    radial-gradient(circle at 85% 85%, rgba(181, 164, 132, 0.06) 0%, transparent 45%),
-    radial-gradient(circle at 50% 50%, rgba(38, 34, 26, 0.7) 0%, transparent 100%),
-    url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.035'/%3E%3C/svg%3E");
+.btn-robotics-primary:hover,
+.btn-emerald-primary:hover {
+  background-color: var(--brand-indigo-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
 }
 
-/* Sandy Glassmorphic Card */
-.sand-card {
-  background-color: rgba(27, 23, 18, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(181, 164, 132, 0.16);
-  border-radius: 0.75rem;
-  box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(243, 239, 230, 0.05);
+/* Production Grade Secondary Button */
+.btn-secondary-light {
+  background-color: #ffffff;
+  color: #09090b;
+  border: 1px solid #e4e4e7;
+  font-weight: 600;
+  border-radius: 0.625rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-secondary-light:hover {
+  background-color: #fafafa;
+  border-color: #d4d4d8;
+  color: #4f46e5;
+}
+
+/* Production Grade Crisp Cards */
+.minimal-card,
+.luxury-card {
+  background-color: #ffffff;
+  border: 1px solid #e4e4e7;
+  border-radius: 0.875rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.sand-card:hover {
-  border-color: rgba(181, 164, 132, 0.32);
-  box-shadow: 0 8px 32px -2px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(243, 239, 230, 0.1);
+.minimal-card:hover,
+.luxury-card:hover {
+  border-color: #c7d2fe;
+  box-shadow: 0 8px 24px -4px rgba(79, 70, 229, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
 }
 
-.sand-card-active {
-  border-color: rgba(16, 185, 129, 0.5);
-  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.25), inset 0 1px 0 0 rgba(16, 185, 129, 0.2);
+/* Palette Utility Mappings */
+.bg-robotics-light,
+.bg-emerald-light {
+  background-color: var(--brand-indigo-light);
 }
 
-/* Tactile Sandy Emerald CTA Buttons */
-.btn-emerald-sand {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: #fbf9f5;
-  font-weight: 600;
-  padding: 0.625rem 1.25rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(110, 231, 183, 0.4);
-  box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.35), inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
-  transition: all 0.2s ease-in-out;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  cursor: pointer;
+.border-robotics-border,
+.border-emerald-border {
+  border-color: var(--brand-indigo-border);
 }
 
-.btn-emerald-sand:hover {
-  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
-  box-shadow: 0 6px 20px 0 rgba(16, 185, 129, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
-  transform: translateY(-1px);
+.text-robotics-primary,
+.text-emerald-primary {
+  color: var(--brand-indigo);
 }
 
-.btn-emerald-sand:active {
-  transform: translateY(1px);
-  box-shadow: 0 2px 8px 0 rgba(16, 185, 129, 0.3);
+.text-robotics-text,
+.text-emerald-text {
+  color: var(--brand-indigo-text);
 }
 
-.btn-sand-outline {
-  background: rgba(38, 34, 26, 0.6);
-  color: var(--sand-100);
-  font-weight: 500;
-  padding: 0.625rem 1.25rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(181, 164, 132, 0.25);
-  backdrop-filter: blur(8px);
-  transition: all 0.2s ease-in-out;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  cursor: pointer;
+.bg-robotics-primary,
+.bg-emerald-primary {
+  background-color: var(--brand-indigo);
 }
 
-.btn-sand-outline:hover {
-  background: rgba(53, 48, 43, 0.8);
-  border-color: var(--sand-300);
-  color: var(--sand-50);
-  transform: translateY(-1px);
-}
-
-/* Custom Sand Scrollbar */
+/* Custom Scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--sand-950);
+  background: #f4f4f5;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--sand-800);
-  border-radius: 4px;
-  border: 2px solid var(--sand-950);
+  background: #d4d4d8;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--sand-600);
+  background: #a1a1aa;
 }
-
-/* Agentic Thinking HUD Pulse */
-@keyframes agent-pulse {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale(0.96);
-  }
-}
-
-.agent-pulse-dot {
-  animation: agent-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Grid overlay background */
-.bg-grid-sand {
-  background-size: 32px 32px;
-  background-image: 
-    linear-gradient(to right, rgba(181, 164, 132, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(181, 164, 132, 0.05) 1px, transparent 1px);
-}
-
