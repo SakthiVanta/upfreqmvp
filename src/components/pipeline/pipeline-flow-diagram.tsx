@@ -6,7 +6,7 @@ import {
   type Node, type Edge, type NodeProps
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { DataFlowNode, DataFlowEdge } from '@/lib/andino-data';
+import { DataFlowNode, DataFlowEdge } from '@/lib/robot-profile';
 import { Radio, Cpu, Layers, Activity, Navigation, Zap } from 'lucide-react';
 
 const STAGE_ORDER: DataFlowNode['type'][] = ['sensor', 'driver', 'preprocessing', 'estimation', 'autonomy_module', 'control'];

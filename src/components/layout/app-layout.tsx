@@ -6,16 +6,15 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { GithubIcon } from '@/components/ui/github-icon';
 import {
-  Cpu, Layers, Box, LogOut, ChevronLeft, ChevronRight,
+  Layers, Box, LogOut, ChevronLeft, ChevronRight,
   Menu, X, RefreshCw, Database, FolderPlus, Bot
 } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { href: '/dashboard', label: '1. Agent Workspace', icon: Cpu },
+  { href: '/projects', label: '1. Projects', icon: FolderPlus },
   { href: '/matrix', label: '2. Parameter Matrix', icon: Layers },
   { href: '/studio', label: '3. 3D Parametric Studio', icon: Box },
   { href: '/robots', label: '4. Robot Library', icon: Bot },
-  { href: '/projects', label: '5. Project Fleet CRUD', icon: FolderPlus },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -38,7 +37,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('upfreq_selected_robot');
       localStorage.removeItem('upfreq_ingested_repo_url');
       alert('Database and workspace reset complete! Reinitialized with clean Demo User.');
-      window.location.href = '/dashboard';
+      window.location.href = '/projects';
     } catch (e) {
       alert('Workspace reset finished.');
       window.location.reload();
@@ -61,7 +60,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       }`}>
         {/* Sidebar Header / Brand */}
         <div className="h-16 px-4 flex items-center justify-between border-b border-sand-800 shrink-0">
-          <Link href="/dashboard" className="flex items-center gap-2.5 overflow-hidden">
+          <Link href="/projects" className="flex items-center gap-2.5 overflow-hidden">
             <div className="h-8 w-8 rounded-lg bg-emerald-primary text-sand-950 flex items-center justify-center font-mono font-bold text-sm shrink-0 shadow-xs">
               UF
             </div>
@@ -88,7 +87,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Sidebar Navigation Items */}
         <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto font-mono text-xs">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-            const active = pathname === href || (href === '/dashboard' && pathname === '/');
+            const active = pathname === href || (href === '/projects' && pathname === '/');
             return (
               <Link
                 key={href}

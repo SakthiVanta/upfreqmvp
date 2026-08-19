@@ -22,12 +22,12 @@ export default function LoginPage() {
   const handleAuthSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     loginWithCredentials(username, password);
-    router.push('/dashboard');
+    router.push('/projects');
   };
 
   const handleGithubClick = () => {
     loginWithGithub();
-    router.push('/dashboard');
+    router.push('/projects');
   };
 
   return (
@@ -83,10 +83,10 @@ export default function LoginPage() {
             </div>
             <p className="text-sand-300">Your session is active. Proceed to the application workspace.</p>
             <button
-              onClick={() => router.push('/dashboard')}
+              onClick={() => router.push('/projects')}
               className="btn-emerald-primary w-full py-2.5 text-xs flex items-center justify-center gap-2 font-semibold cursor-pointer"
             >
-              Open Robotics Dashboard
+              Open Robot Projects
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>

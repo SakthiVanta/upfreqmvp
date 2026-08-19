@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { RobotProfile } from './andino-data';
+import { RobotProfile } from './robot-profile';
 
 interface User {
   username: string;

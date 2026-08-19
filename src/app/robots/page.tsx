@@ -44,7 +44,7 @@ export default function RobotsPage() {
     if (isAuthenticated) loadFromDb();
   }, [isAuthenticated]);
 
-  const handleLoad = (entry: SavedRobotEntry, destination: '/matrix' | '/studio' | '/dashboard') => {
+  const handleLoad = (entry: SavedRobotEntry, destination: '/matrix' | '/studio' | '/projects') => {
     setSelectedRobot(entry.profile);
     setIngestedRepoUrl(entry.repoUrl);
     router.push(destination);
@@ -191,9 +191,9 @@ export default function RobotsPage() {
                     Studio
                   </button>
                   <button
-                    onClick={() => handleLoad(entry, '/dashboard')}
+                    onClick={() => handleLoad(entry, '/projects')}
                     className="px-3 py-2 rounded-lg btn-emerald-primary cursor-pointer"
-                    title="Open in Dashboard"
+                    title="Open in Projects"
                   >
                     <ArrowRight className="h-3.5 w-3.5" />
                   </button>

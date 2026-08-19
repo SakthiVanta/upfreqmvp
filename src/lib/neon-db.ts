@@ -2,7 +2,7 @@ import { neon } from '@neondatabase/serverless';
 import { drizzle as drizzleNeon } from 'drizzle-orm/neon-http';
 import { eq, and } from 'drizzle-orm';
 import * as schema from './schema';
-import { RobotProfile } from './andino-data';
+import { RobotProfile } from './robot-profile';
 
 const connectionString = process.env.DATABASE_URL;
 
