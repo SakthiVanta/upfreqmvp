@@ -72,14 +72,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               UF
             </div>
             {!sidebarCollapsed && (
-              <div className="flex flex-col">
-                <span className="font-display font-bold text-sm text-sand-50 tracking-tight leading-none">
-                  UpFreq Robotics
-                </span>
-                <span className="text-[10px] text-emerald-400 mt-0.5">
-                  App Workspace v2.4
-                </span>
-              </div>
+              <span className="font-display font-bold text-sm text-sand-50 tracking-tight leading-none">
+                UpFreq
+              </span>
             )}
           </Link>
 
@@ -155,7 +150,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="h-7 w-7 rounded bg-emerald-primary text-sand-950 flex items-center justify-center font-bold text-xs">
                 UF
               </div>
-              <span className="font-bold text-sm">UpFreq Mobile Menu</span>
+              <span className="font-bold text-sm">UpFreq</span>
             </div>
             <button onClick={() => setMobileMenuOpen(false)} className="p-2 text-sand-400 hover:text-sand-50 cursor-pointer">
               <X className="h-6 w-6" />
@@ -203,42 +198,26 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* 3. Main Responsive Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto w-full">
-        {/* Top Navbar */}
-        <header className="h-16 bg-sand-925/95 backdrop-blur-md border-b border-sand-800 px-4 sm:px-6 flex items-center justify-between shrink-0 sticky top-0 z-20">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden p-2 text-sand-300 hover:text-sand-50 rounded-lg border border-sand-700 cursor-pointer shrink-0"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
+        {/* Top bar — mobile only; the sidebar already covers branding,
+            navigation, reset, and sign-out on desktop, so nothing here is
+            duplicated there. */}
+        <header className="md:hidden h-14 bg-sand-925/95 backdrop-blur-md border-b border-sand-800 px-4 flex items-center justify-between shrink-0 sticky top-0 z-20">
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="p-2 text-sand-300 hover:text-sand-50 rounded-lg border border-sand-700 cursor-pointer"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
 
-            <div className="flex items-center gap-2 truncate">
-              <span className="h-2 w-2 rounded-full bg-emerald-primary animate-pulse shrink-0" />
-              <span className="text-xs font-bold text-sand-100 uppercase tracking-wider truncate">
-                UpFreq Autonomous Robotics Suite
-              </span>
-            </div>
-          </div>
+          <span className="font-display font-bold text-sm text-sand-50">UpFreq</span>
 
-          <div className="flex items-center gap-3 text-xs shrink-0">
-            <button
-              onClick={handleResetDatabase}
-              disabled={isResettingDb}
-              className="hidden sm:flex px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg font-bold items-center gap-1.5 transition-all cursor-pointer disabled:opacity-60"
-            >
-              <Database className="h-3.5 w-3.5" />
-              Reset DB
-            </button>
-
-            <button
-              onClick={() => { logout(); router.push('/'); }}
-              className="text-sand-400 hover:text-red-400 font-semibold transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Sign Out</span>
-            </button>
-          </div>
+          <button
+            onClick={() => { logout(); router.push('/'); }}
+            className="p-2 text-sand-400 hover:text-red-400 transition-colors cursor-pointer"
+            title="Sign Out"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
         </header>
 
         {/* Dynamic Page Main Content */}

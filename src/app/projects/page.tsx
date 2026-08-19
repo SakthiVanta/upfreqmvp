@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  FolderPlus, Layers, Plus, Trash2, GitFork, X, Globe, Sparkles,
+  FolderPlus, Plus, Trash2, GitFork, X, Globe, Sparkles,
   Loader2, AlertTriangle, Bot, Eye, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { RobotProfile, createDynamicRobotProfileFromUrl } from '@/lib/robot-profile';
@@ -38,10 +38,6 @@ export default function ProjectsPage() {
   const [nameInput, setNameInput] = useState('');
   const [descInput, setDescInput] = useState('');
   const [repoUrlInput, setRepoUrlInput] = useState<Record<string, string>>({});
-
-  // Quick-start: paste a repo URL to instantly create a project (robot) for
-  // it and kick off the audit, without going through the modal first.
-  const [quickUrl, setQuickUrl] = useState('');
 
   // Only one audit runs at a time; tracked by which project it belongs to.
   // lastAuditProjectId stays set after completion so the resulting logs/error
@@ -236,31 +232,6 @@ export default function ProjectsPage() {
     setAuditingProjectId(null);
   };
 
-  // Quick-start form: create a project named after the repo and immediately
-  // audit it — the fastest path from "paste a URL" to "see the analysis."
-  const handleQuickStart = (e: React.FormEvent) => {
-    e.preventDefault();
-    const url = quickUrl.trim();
-    if (!url || auditingProjectId) return;
-
-    const repoName = url.split('/').pop() || 'robotics_repo';
-    const cleanName = repoName.charAt(0).toUpperCase() + repoName.slice(1);
-
-    const newProj: UserProject = {
-      id: `proj_${Date.now()}`,
-      name: cleanName,
-      description: `Autonomy codebase for ${cleanName}`,
-      repos: [{ id: `repo_${Date.now()}`, url, name: repoName }],
-      isAudited: false
-    };
-
-    const nextProjects = [newProj, ...projects];
-    saveProjects(nextProjects);
-    setQuickUrl('');
-    setPage(1);
-    handleRunAudit(newProj);
-  };
-
   const totalPages = Math.max(1, Math.ceil(projects.length / PAGE_SIZE));
   const clampedPage = Math.min(page, totalPages);
   const paginatedProjects = useMemo(
@@ -273,21 +244,11 @@ export default function ProjectsPage() {
   return (
     <div className="space-y-8 font-sans pb-16">
 
-      {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 minimal-card p-6">
-        <div className="flex items-center gap-3.5">
-          <div className="p-3.5 rounded-xl bg-sand-800 text-white font-bold shrink-0">
-            <Layers className="h-6 w-6 text-emerald-primary" />
-          </div>
-          <div>
-            <h1 className="text-xl font-display font-extrabold text-sand-50 tracking-tight">
-              Robot Projects
-            </h1>
-            <p className="text-xs text-sand-500 mt-0.5">
-              Each project is one robot's autonomy codebase — attach its GitHub repositories, then run the AI audit to get its data.
-            </p>
-          </div>
-        </div>
+      {/* Title Bar */}
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-xl font-display font-extrabold text-sand-50 tracking-tight">
+          Projects
+        </h1>
 
         <button
           onClick={() => setShowCreateModal(true)}
@@ -296,35 +257,6 @@ export default function ProjectsPage() {
           <FolderPlus className="h-4 w-4" />
           Create New Project
         </button>
-      </div>
-
-      {/* Quick-Start Ingest Card */}
-      <div className="minimal-card p-6 space-y-4">
-        <div className="flex items-center gap-2 text-xs font-bold text-emerald-primary uppercase tracking-wider">
-          <Globe className="h-4 w-4" />
-          Quick Start
-        </div>
-        <p className="text-xs text-sand-400 leading-relaxed max-w-3xl">
-          Paste a GitHub ROS 2 repository URL to create a new robot project for it and run the agentic audit immediately.
-        </p>
-        <form onSubmit={handleQuickStart} className="flex flex-col sm:flex-row gap-3">
-          <input
-            type="url"
-            required
-            value={quickUrl}
-            onChange={(e) => setQuickUrl(e.target.value)}
-            placeholder="https://github.com/organization/repository"
-            className="flex-1 px-4 py-3 rounded-xl border border-sand-700 bg-sand-950 text-sand-50 text-xs focus:outline-none focus:border-emerald-primary min-w-0"
-          />
-          <button
-            type="submit"
-            disabled={!!auditingProjectId}
-            className="btn-emerald-primary py-3 px-6 text-xs font-bold shrink-0 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
-          >
-            <Sparkles className="h-4 w-4" />
-            Create & Audit
-          </button>
-        </form>
       </div>
 
       {/* Create Project Modal */}
@@ -622,23 +554,23 @@ function ModalShell({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-sand-950/70 backdrop-blur-sm flex items-start sm:items-center justify-center p-4 overflow-y-auto animate-in fade-in"
+      className="fixed inset-0 z-50 bg-sand-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-in fade-in"
       onClick={onClose}
     >
       <div
-        className={`minimal-card w-full ${wide ? 'max-w-3xl' : 'max-w-md'} my-8 sm:my-0 animate-in fade-in slide-in-from-top-4`}
+        className={`minimal-card w-full ${wide ? 'max-w-3xl' : 'max-w-md'} max-h-[90vh] flex flex-col animate-in fade-in slide-in-from-top-4`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-sand-800 p-5">
-          <h3 className="text-sm font-bold text-sand-50 flex items-center gap-2">
-            <Icon className="h-4 w-4 text-emerald-primary" />
-            {title}
+        <div className="flex items-center justify-between gap-3 border-b border-sand-800 p-4 sm:p-5 shrink-0">
+          <h3 className="text-sm font-bold text-sand-50 flex items-center gap-2 min-w-0">
+            <Icon className="h-4 w-4 text-emerald-primary shrink-0" />
+            <span className="truncate">{title}</span>
           </h3>
-          <button onClick={onClose} className="text-sand-500 hover:text-sand-50 p-1 rounded-lg hover:bg-sand-800 cursor-pointer">
+          <button onClick={onClose} className="text-sand-500 hover:text-sand-50 p-1 rounded-lg hover:bg-sand-800 cursor-pointer shrink-0">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="p-5">
+        <div className="p-4 sm:p-5 overflow-y-auto overflow-x-hidden">
           {children}
         </div>
       </div>
