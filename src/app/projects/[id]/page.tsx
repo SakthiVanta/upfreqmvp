@@ -8,10 +8,14 @@ import {
 } from 'lucide-react';
 import { fetchProject, updateProject as apiUpdateProject, deleteProject as apiDeleteProject, UserProject } from '@/lib/user-projects';
 import { CodebaseReview } from '@/components/dashboard/codebase-review';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { useToast } from '@/components/ui/toast';
 
 export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const confirm = useConfirm();
+  const toast = useToast();
   const projectId = params.id as string;
 
   const [project, setProject] = useState<UserProject | null | undefined>(undefined);
@@ -68,9 +72,18 @@ export default function ProjectDetailPage() {
   };
 
   const handleDeleteProject = async () => {
-    if (!confirm('Are you sure you want to delete this project?')) return;
-    await apiDeleteProject(projectId);
-    router.push('/projects');
+    const ok = await confirm({
+      message: 'Are you sure you want to delete this project? This cannot be undone.',
+      confirmLabel: 'Delete Project',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await apiDeleteProject(projectId);
+      router.push('/projects');
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to delete project.');
+    }
   };
 
   // Run the real agentic /api/analyze audit for this project, streaming live

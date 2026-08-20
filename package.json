@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "db:seed": "tsx --env-file=.env scripts/seed-provider-models.ts"
+    "db:seed": "tsx --env-file=.env scripts/seed-provider-models.ts",
+    "eval:agent": "tsx --env-file=.env scripts/eval-agent.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
