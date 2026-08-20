@@ -4,10 +4,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   FolderPlus, Plus, Trash2, GitFork, X, Globe,
-  ChevronLeft, ChevronRight, Check, Search
+  ChevronLeft, ChevronRight, Check, Search, Loader2
 } from 'lucide-react';
-import { useAuth } from '@/lib/auth-context';
-import { loadUserProjects, saveUserProjects, UserProject, ProjectRepo } from '@/lib/user-projects';
+import { fetchProjects, createProject, deleteProject, UserProject, ProjectRepo } from '@/lib/user-projects';
 
 const PAGE_SIZE = 8;
 
@@ -15,17 +14,18 @@ const CREATE_STEPS = ['Details', 'Repositories', 'Review'] as const;
 
 export default function ProjectsPage() {
   const router = useRouter();
-  const { selectedRobot } = useAuth();
 
   const [projects, setProjects] = useState<UserProject[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  // Client-side filter, not a server query — projects live in this
-  // browser's localStorage (loadUserProjects/saveUserProjects), not a
-  // backend datastore, so there's nothing on a server to search. Filtering
-  // the already-loaded list is both the honest fit and the faster one here.
+  // Client-side filter over the already-fetched list — projects are few
+  // enough per user that a round-trip per keystroke would be slower, not
+  // more correct.
   const [searchQuery, setSearchQuery] = useState('');
 
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [createStep, setCreateStep] = useState(0);
   const [nameInput, setNameInput] = useState('');
   const [descInput, setDescInput] = useState('');
@@ -33,39 +33,11 @@ export default function ProjectsPage() {
   const [stepRepos, setStepRepos] = useState<ProjectRepo[]>([]);
 
   useEffect(() => {
-    setProjects(loadUserProjects());
+    fetchProjects()
+      .then(setProjects)
+      .catch((e: Error) => setLoadError(e.message))
+      .finally(() => setIsLoading(false));
   }, []);
-
-  // A robot loaded elsewhere (Robot Library, marketing page ingest) that
-  // isn't yet tracked as a project here still needs to surface as one —
-  // "project" is the robot's home, so materialize it rather than showing
-  // the loaded robot in a separate, disconnected place.
-  useEffect(() => {
-    if (!selectedRobot) return;
-    setProjects(prev => {
-      const alreadyTracked = prev.some(p =>
-        p.repos.some(r => r.url === selectedRobot.repoUrl) || p.auditedRobotProfile?.id === selectedRobot.id
-      );
-      if (alreadyTracked) return prev;
-
-      const newProj: UserProject = {
-        id: `proj_${Date.now()}`,
-        name: selectedRobot.name,
-        description: selectedRobot.description || `Autonomy codebase for ${selectedRobot.name}`,
-        repos: [{ id: `repo_${Date.now()}`, url: selectedRobot.repoUrl, name: selectedRobot.repoUrl.split('/').pop() || selectedRobot.id }],
-        isAudited: true,
-        auditedRobotProfile: selectedRobot,
-      };
-      const next = [newProj, ...prev];
-      saveUserProjects(next);
-      return next;
-    });
-  }, [selectedRobot]);
-
-  const saveProjects = (next: UserProject[]) => {
-    setProjects(next);
-    saveUserProjects(next);
-  };
 
   const resetCreateFlow = () => {
     setShowCreateModal(false);
@@ -84,29 +56,36 @@ export default function ProjectsPage() {
     setStepRepoUrl('');
   };
 
-  const handleFinishCreate = () => {
-    if (!nameInput.trim()) return;
+  const handleFinishCreate = async () => {
+    const name = nameInput.trim();
+    if (!name || isCreating) return;
 
-    const newProj: UserProject = {
-      id: `proj_${Date.now()}`,
-      name: nameInput.trim(),
-      description: descInput.trim() || "This robot's autonomy codebase",
-      repos: stepRepos,
-      isAudited: false
-    };
-
-    saveProjects([newProj, ...projects]);
-    resetCreateFlow();
-    router.push(`/projects/${newProj.id}`);
+    setIsCreating(true);
+    try {
+      const newProj = await createProject({
+        name,
+        description: descInput.trim() || "This robot's autonomy codebase",
+        repos: stepRepos.map(r => ({ url: r.url, name: r.name })),
+      });
+      setProjects(prev => [newProj, ...prev]);
+      resetCreateFlow();
+      router.push(`/projects/${newProj.id}`);
+    } catch (e: any) {
+      alert(e.message || 'Failed to create project.');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
-  const handleDeleteProject = (id: string) => {
+  const handleDeleteProject = async (id: string) => {
     if (!confirm('Are you sure you want to delete this project?')) return;
-    const next = projects.filter(p => p.id !== id);
-    saveProjects(next);
-    const activeId = localStorage.getItem('upfreq_active_project_id');
-    if (activeId === id) {
-      localStorage.removeItem('upfreq_active_project_id');
+    const prevProjects = projects;
+    setProjects(prev => prev.filter(p => p.id !== id));
+    try {
+      await deleteProject(id);
+    } catch (e: any) {
+      setProjects(prevProjects);
+      alert(e.message || 'Failed to delete project.');
     }
   };
 
@@ -318,9 +297,11 @@ export default function ProjectsPage() {
                 <button
                   type="button"
                   onClick={handleFinishCreate}
-                  className="btn-emerald-primary py-2 px-4 text-xs font-bold cursor-pointer"
+                  disabled={isCreating}
+                  className="btn-emerald-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Create Project
+                  {isCreating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {isCreating ? 'Creating...' : 'Create Project'}
                 </button>
               )}
             </div>
@@ -329,7 +310,15 @@ export default function ProjectsPage() {
       )}
 
       {/* Projects Table */}
-      {filteredProjects.length > 0 ? (
+      {isLoading ? (
+        <div className="minimal-card p-12 text-center">
+          <Loader2 className="h-6 w-6 mx-auto text-sand-500 animate-spin" />
+        </div>
+      ) : loadError ? (
+        <div className="bg-rose-50 border border-rose-200 p-4 text-rose-700 text-xs">
+          <span className="font-bold">Couldn&apos;t load projects: </span>{loadError}
+        </div>
+      ) : filteredProjects.length > 0 ? (
         <div className="minimal-card overflow-hidden">
           <div className="h-[calc(100vh-15rem)] min-h-64 max-h-160 overflow-y-auto overflow-x-auto">
             <table className="w-full text-left text-sm border-collapse">
@@ -412,16 +401,9 @@ export default function ProjectsPage() {
           <div className="space-y-1">
             <h3 className="text-base font-bold text-sand-50">No Projects Created Yet</h3>
             <p className="text-xs text-sand-500 max-w-md mx-auto">
-              Create a project for each robot to group its GitHub repositories and run an AI audit against its autonomy codebase.
+              Group each robot&apos;s repositories into a project to run an AI audit.
             </p>
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="btn-emerald-primary py-2.5 px-5 text-xs font-bold inline-flex items-center gap-2 cursor-pointer"
-          >
-            <FolderPlus className="h-4 w-4" />
-            Create First Project
-          </button>
         </div>
       )}
 

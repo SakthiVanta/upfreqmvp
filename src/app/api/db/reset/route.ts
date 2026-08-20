@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { resetDatabaseAndSeedDemoUser } from '@/lib/neon-db';
+import { resetDatabaseAndSeedDemoUser } from '@/lib/db/admin';
 
 export const runtime = 'nodejs';
 

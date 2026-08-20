@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { GithubIcon } from '@/components/ui/github-icon';
 import {
-  LogOut, Menu, X, RefreshCw, Database, FolderOpen
+  LogOut, Menu, X, RefreshCw, Database, FolderOpen, Settings
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -27,10 +27,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     setIsResettingDb(true);
     try {
       await fetch('/api/db/reset', { method: 'POST' });
-      localStorage.removeItem('upfreq_user_projects');
-      localStorage.removeItem('upfreq_active_project_id');
-      localStorage.removeItem('upfreq_selected_robot');
-      localStorage.removeItem('upfreq_ingested_repo_url');
       alert('Database and workspace reset complete! Reinitialized with clean Demo User.');
       window.location.href = '/projects';
     } catch (e) {
@@ -87,7 +83,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </nav>
 
         {/* User Profile & Logout Section */}
-        <div className="p-3 border-t border-sand-800 bg-sand-950/60 shrink-0 space-y-2">
+        <div className="p-3 border-t border-sand-800 bg-sand-950/60 shrink-0 space-y-2.5">
+          {/* Reset DB — its own standalone action, separate from the
+              profile/settings/sign-out group below. */}
           <button
             onClick={handleResetDatabase}
             disabled={isResettingDb}
@@ -97,6 +95,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <span>Reset DB (Demo User)</span>
           </button>
 
+          {/* Profile, then Settings, then Sign Out — one grouped row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 overflow-hidden">
               <div className="h-7 w-7 bg-sand-800 border border-sand-700 flex items-center justify-center font-bold text-xs text-emerald-400 shrink-0">
@@ -108,13 +107,24 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
 
-            <button
-              onClick={() => { logout(); router.push('/'); }}
-              className="p-1.5 text-sand-500 hover:text-red-400 hover:bg-sand-800 transition-colors cursor-pointer"
-              title="Sign Out"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              <Link
+                href="/settings"
+                className={`p-1.5 transition-colors cursor-pointer ${
+                  pathname === '/settings' ? 'text-emerald-primary bg-sand-800' : 'text-sand-500 hover:text-sand-50 hover:bg-sand-800'
+                }`}
+                title="Settings"
+              >
+                <Settings className="h-4 w-4" />
+              </Link>
+              <button
+                onClick={() => { logout(); router.push('/'); }}
+                className="p-1.5 text-sand-500 hover:text-red-400 hover:bg-sand-800 transition-colors cursor-pointer"
+                title="Sign Out"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         </div>
       </aside>
@@ -122,7 +132,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       {/* 2. Mobile Responsive Slide-Over Navigation Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50 bg-sand-950/90 backdrop-blur-sm flex flex-col animate-in fade-in">
-          <div className="bg-sand-925 text-sand-50 p-4 flex items-center justify-between border-b border-sand-800">
+          <div className="bg-sand-925 text-sand-50 p-4 flex items-center justify-between border-b border-sand-800 shrink-0">
             <div className="flex items-center gap-2">
               <div className="h-7 w-7 bg-emerald-primary text-sand-950 flex items-center justify-center font-bold text-xs">
                 UF
@@ -134,30 +144,59 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </button>
           </div>
 
-          <nav className="flex-1 p-4 space-y-2 text-sm overflow-y-auto">
-            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-              const active = pathname === href;
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`tap-scale flex items-center gap-3 p-3 font-bold transition-colors ${
-                    active ? 'bg-emerald-primary text-sand-950' : 'bg-sand-800 text-sand-50'
-                  }`}
-                >
-                  <Icon className={`h-5 w-5 ${active ? '' : 'text-emerald-primary'}`} />
-                  {label}
-                </Link>
-              );
-            })}
+          {/* User identity — desktop shows this in the sidebar footer;
+              the mobile drawer had no equivalent before, so "who am I
+              signed in as" was only visible on desktop. */}
+          <div className="flex items-center gap-2.5 p-4 border-b border-sand-800 bg-sand-925 shrink-0">
+            <div className="h-9 w-9 bg-sand-800 border border-sand-700 flex items-center justify-center font-bold text-sm text-emerald-400 shrink-0">
+              {user?.username?.charAt(0).toUpperCase()}
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-bold text-sand-100 truncate">{user?.username}</span>
+              <span className="text-[11px] text-sand-500 truncate capitalize">{user?.provider} Auth</span>
+            </div>
+          </div>
 
-            <div className="pt-4 border-t border-sand-800 space-y-3">
+          <nav className="flex-1 p-4 space-y-5 text-sm overflow-y-auto">
+            <div className="space-y-2">
+              {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+                const active = pathname === href;
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`tap-scale flex items-center gap-3 p-3 font-bold transition-colors ${
+                      active ? 'bg-emerald-primary text-sand-950' : 'bg-sand-800 text-sand-50'
+                    }`}
+                  >
+                    <Icon className={`h-5 w-5 ${active ? '' : 'text-emerald-primary'}`} />
+                    {label}
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="space-y-2">
+              <p className="px-1 text-[10px] font-bold text-sand-600 uppercase tracking-wider">Account</p>
+
+              <Link
+                href="/settings"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`tap-scale flex items-center gap-3 p-3 font-bold transition-colors ${
+                  pathname === '/settings' ? 'bg-emerald-primary text-sand-950' : 'bg-sand-800 text-sand-50'
+                }`}
+              >
+                <Settings className={`h-5 w-5 ${pathname === '/settings' ? '' : 'text-emerald-primary'}`} />
+                Settings
+              </Link>
+
               <button
                 onClick={handleResetDatabase}
-                className="w-full py-3 bg-rose-950 text-rose-200 border border-rose-800 font-bold flex items-center justify-center gap-2 cursor-pointer"
+                disabled={isResettingDb}
+                className="w-full py-3 bg-rose-950 text-rose-200 border border-rose-800 font-bold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
               >
-                <Database className="h-4 w-4" />
+                {isResettingDb ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
                 Reset DB to Demo User
               </button>
 

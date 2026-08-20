@@ -6,17 +6,13 @@ import {
   ArrowLeft, Plus, Trash2, GitFork, X, Sparkles,
   Loader2, AlertTriangle, Bot, ChevronDown, ChevronUp, Check, Pencil
 } from 'lucide-react';
-import { createDynamicRobotProfileFromUrl } from '@/lib/robot-profile';
-import { saveRobotToLibrary } from '@/lib/robot-library';
-import { useAuth } from '@/lib/auth-context';
-import { loadUserProjects, saveUserProjects, UserProject } from '@/lib/user-projects';
+import { fetchProject, updateProject as apiUpdateProject, deleteProject as apiDeleteProject, UserProject } from '@/lib/user-projects';
 import { CodebaseReview } from '@/components/dashboard/codebase-review';
 
 export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
   const projectId = params.id as string;
-  const { setSelectedRobot, setIngestedRepoUrl } = useAuth();
 
   const [project, setProject] = useState<UserProject | null | undefined>(undefined);
   const [repoUrlInput, setRepoUrlInput] = useState('');
@@ -33,31 +29,28 @@ export default function ProjectDetailPage() {
   const [editDescription, setEditDescription] = useState('');
 
   useEffect(() => {
-    const projects = loadUserProjects();
-    const found = projects.find(p => p.id === projectId) || null;
-    setProject(found);
-    setRepoSectionOpen(!found?.isAudited);
+    let cancelled = false;
+    fetchProject(projectId).then(found => {
+      if (cancelled) return;
+      setProject(found);
+      setRepoSectionOpen(!found?.isAudited);
+    });
+    return () => { cancelled = true; };
   }, [projectId]);
 
-  const updateProject = (updater: (p: UserProject) => UserProject) => {
-    const projects = loadUserProjects();
-    const next = projects.map(p => (p.id === projectId ? updater(p) : p));
-    saveUserProjects(next);
-    setProject(next.find(p => p.id === projectId) || null);
-  };
-
-  const handleAddRepo = () => {
+  const handleAddRepo = async () => {
     const url = repoUrlInput.trim();
     if (!url || !project) return;
     if (project.repos.some(r => r.url === url)) return;
 
-    const repoName = url.split('/').pop() || 'robotics_repo';
-    updateProject(p => ({ ...p, repos: [...p.repos, { id: `repo_${Date.now()}`, url, name: repoName }] }));
     setRepoUrlInput('');
+    const updated = await apiUpdateProject(projectId, { addRepo: { url } });
+    if (updated) setProject(updated);
   };
 
-  const handleRemoveRepo = (repoId: string) => {
-    updateProject(p => ({ ...p, repos: p.repos.filter(r => r.id !== repoId) }));
+  const handleRemoveRepo = async (repoId: string) => {
+    const updated = await apiUpdateProject(projectId, { removeRepoId: repoId });
+    if (updated) setProject(updated);
   };
 
   const openEditModal = () => {
@@ -67,18 +60,16 @@ export default function ProjectDetailPage() {
     setEditModalOpen(true);
   };
 
-  const handleSaveProjectDetails = () => {
+  const handleSaveProjectDetails = async () => {
     if (!editName.trim()) return;
-    updateProject(p => ({ ...p, name: editName.trim(), description: editDescription.trim() }));
+    const updated = await apiUpdateProject(projectId, { name: editName.trim(), description: editDescription.trim() });
+    if (updated) setProject(updated);
     setEditModalOpen(false);
   };
 
-  const handleDeleteProject = () => {
+  const handleDeleteProject = async () => {
     if (!confirm('Are you sure you want to delete this project?')) return;
-    const projects = loadUserProjects();
-    saveUserProjects(projects.filter(p => p.id !== projectId));
-    const activeId = localStorage.getItem('upfreq_active_project_id');
-    if (activeId === projectId) localStorage.removeItem('upfreq_active_project_id');
+    await apiDeleteProject(projectId);
     router.push('/projects');
   };
 
@@ -96,7 +87,6 @@ export default function ProjectDetailPage() {
 
     const targetUrls = project.repos.map(r => r.url);
     const primaryUrl = targetUrls[0];
-    setIngestedRepoUrl(primaryUrl);
 
     let parsedResult: any = null;
 
@@ -104,7 +94,7 @@ export default function ProjectDetailPage() {
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repoUrl: primaryUrl, multiRepoUrls: targetUrls })
+        body: JSON.stringify({ repoUrl: primaryUrl, multiRepoUrls: targetUrls, projectId })
       });
 
       if (!res.ok || !res.body) {
@@ -142,13 +132,10 @@ export default function ProjectDetailPage() {
     }
 
     if (parsedResult) {
-      const dynamicProfile = createDynamicRobotProfileFromUrl(primaryUrl, parsedResult);
-      saveRobotToLibrary(dynamicProfile);
-
-      updateProject(p => ({ ...p, isAudited: true, auditedRobotProfile: dynamicProfile }));
-
-      setSelectedRobot(dynamicProfile);
-      localStorage.setItem('upfreq_active_project_id', projectId);
+      // The server already persisted this exact profile (linked to this
+      // project) before streaming it back — no second write needed here,
+      // just reflect it in local state.
+      setProject(prev => (prev ? { ...prev, isAudited: true, auditedRobotProfile: parsedResult } : prev));
     }
 
     setIsAuditing(false);
@@ -325,7 +312,10 @@ export default function ProjectDetailPage() {
           <div className="minimal-card p-5 sm:p-6">
             <CodebaseReview
               robot={project.auditedRobotProfile}
-              onUpdate={(updated) => updateProject(p => ({ ...p, auditedRobotProfile: updated }))}
+              onUpdate={(updated) => {
+                setProject(prev => (prev ? { ...prev, auditedRobotProfile: updated } : prev));
+                apiUpdateProject(projectId, { auditedRobotProfile: updated }).catch(() => {});
+              }}
             />
           </div>
 

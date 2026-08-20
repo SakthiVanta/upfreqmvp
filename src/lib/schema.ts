@@ -53,3 +53,47 @@ export const robots = pgTable('robots', {
 }, (table) => [
   uniqueIndex('robots_user_repo_idx').on(table.userId, table.repoUrl),
 ]);
+
+// 5. Agent Settings — one row per user, picking which LLM provider/model the
+// audit agent (see src/lib/agent/) runs against. Never stores API keys —
+// those stay server-only env vars (GEMINI_API_KEY, ANTHROPIC_API_KEY,
+// OPENAI_API_KEY, OPENROUTER_API_KEY); this table only stores the choice.
+export const agentSettings = pgTable('agent_settings', {
+  userId: varchar('user_id', { length: 255 }).primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  provider: varchar('provider', { length: 50 }).notNull().default('gemini'),
+  model: varchar('model', { length: 150 }).notNull().default('gemini-3.5-flash-lite'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// 6. Provider Models — the Settings page's model dropdown, seeded from each
+// provider's real catalog (src/lib/db/provider-models.ts) rather than
+// hardcoded only in the frontend. Re-seed when a provider ships new models;
+// this table is a curated convenience list, not a live model whitelist —
+// the app accepts any model id string a user types in.
+export const providerModels = pgTable('provider_models', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  provider: varchar('provider', { length: 50 }).notNull(),
+  modelId: varchar('model_id', { length: 200 }).notNull(),
+  label: varchar('label', { length: 255 }).notNull(),
+  isDefault: boolean('is_default').notNull().default(false),
+  sortOrder: integer('sort_order').notNull().default(0),
+}, (table) => [
+  uniqueIndex('provider_models_provider_model_idx').on(table.provider, table.modelId),
+]);
+
+// 7. User API Keys — one row per (user, provider), encrypted at rest
+// (src/lib/crypto.ts, AES-256-GCM keyed off AUTH_SECRET). Primary source
+// for the agent's provider credentials; server env vars (GEMINI_API_KEY
+// etc.) are only the fallback when no row exists — see
+// src/lib/db/api-keys.ts resolveApiKey(). The raw key is never returned to
+// the client after saving, only `keyPreview`.
+export const userApiKeys = pgTable('user_api_keys', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  provider: varchar('provider', { length: 50 }).notNull(),
+  encryptedKey: text('encrypted_key').notNull(),
+  keyPreview: varchar('key_preview', { length: 20 }).notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('user_api_keys_user_provider_idx').on(table.userId, table.provider),
+]);
