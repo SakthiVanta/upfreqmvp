@@ -164,7 +164,12 @@ export interface RobotProfile {
     maxSpeedAngularRads: number | null;
   };
   sensors: SensorRecord[];
-  gazeboPlugins: Array<{
+  /** Simulation-side plugins — Gazebo/Ignition is the common case (and the
+   * only one the regex fallback parser can detect), but this is not
+   * Gazebo-specific: a repo can just as validly be Webots/O3DE/Isaac
+   * Sim/MuJoCo-based (Andino alone has real companion repos for each).
+   * `pluginSystem`/`sensorType` are free text for exactly this reason. */
+  simulationPlugins: Array<{
     name: string;
     targetLink: string;
     sensorType: string;
@@ -173,6 +178,10 @@ export interface RobotProfile {
     gzTopic?: string;
     rosTopic: string;
     rosMessageType: string;
+    /** Real config values off the <plugin> tag itself — wheel_separation,
+     * odom_publish_frequency, joint names, etc. Same shape as
+     * SensorRecord.detailedParams above. */
+    parameters?: DetailedSensorParam[];
   }>;
   topics: Array<{
     topic: string;
@@ -270,7 +279,7 @@ export function createDynamicRobotProfileFromUrl(repoUrl: string, parsedData?: a
       maxSpeedAngularRads: parsedData?.chassis?.maxSpeedAngularRads ?? null,
     },
     sensors,
-    gazeboPlugins: parsedData?.gazeboPlugins ?? [],
+    simulationPlugins: parsedData?.simulationPlugins ?? [],
     topics: parsedData?.topics ?? [],
     sensorToModuleMappings,
     dataFlowPipeline,

@@ -33,12 +33,22 @@ interface AutonomyModuleSpec {
   requiresCamera?: boolean;
 }
 
+// nav2_bringup/navigation2 are the umbrella packages almost every real repo
+// actually depends on directly — they transitively pull in the granular
+// sub-packages (nav2_planner, nav2_controller, nav2_costmap_2d, ...)
+// without those ever appearing as a direct package.xml dependency of the
+// robot's own package. Path Planning and Obstacle Avoidance need the
+// umbrella keywords too, not just the granular ones, or a repo that (like
+// most) depends on the umbrella package alone reads as "missing" for both
+// even though nav2_bringup's default launch brings up both by default.
+const NAV2_UMBRELLA_KEYWORDS = ['nav2_bringup', 'navigation2'];
+
 const AUTONOMY_MODULE_SPECS: AutonomyModuleSpec[] = [
   { name: 'SLAM', depKeywords: ['slam_toolbox', 'gmapping', 'cartographer', 'slam'], pathKeywords: ['slam'] },
   { name: 'Localization', depKeywords: ['robot_localization', 'amcl', 'nav2_amcl'], pathKeywords: ['amcl', 'localization'] },
   { name: 'Navigation', depKeywords: ['nav2_bringup', 'nav2_bt_navigator', 'navigation2', 'nav2_common'], pathKeywords: ['navigation', 'nav2'] },
-  { name: 'Path Planning', depKeywords: ['nav2_planner', 'nav2_navfn_planner', 'nav2_smac_planner'], pathKeywords: ['planner'] },
-  { name: 'Obstacle Avoidance', depKeywords: ['nav2_controller', 'nav2_dwb_controller', 'teb_local_planner', 'nav2_costmap_2d'], pathKeywords: ['controller', 'costmap', 'dwb', 'teb'] },
+  { name: 'Path Planning', depKeywords: ['nav2_planner', 'nav2_navfn_planner', 'nav2_smac_planner', ...NAV2_UMBRELLA_KEYWORDS], pathKeywords: ['planner'] },
+  { name: 'Obstacle Avoidance', depKeywords: ['nav2_controller', 'nav2_dwb_controller', 'teb_local_planner', 'nav2_costmap_2d', ...NAV2_UMBRELLA_KEYWORDS], pathKeywords: ['controller', 'costmap', 'dwb', 'teb'] },
   { name: 'Perception', depKeywords: ['image_proc', 'depth_image_proc', 'vision_opencv', 'cv_bridge'], pathKeywords: ['perception', 'vision'], requiresCamera: true },
   { name: 'Control', depKeywords: ['ros2_control', 'diff_drive_controller', 'controller_manager'], pathKeywords: ['control', 'hardware'] },
   { name: 'Sensor Fusion', depKeywords: ['robot_localization', 'ekf'], pathKeywords: ['ekf', 'fusion'] },
@@ -80,6 +90,14 @@ function classifyAutonomyModules(
     } else {
       status = 'Missing / Unreferenced';
       evidence = `No package.xml dependency, launch file, or YAML configuration referencing ${spec.name} was found anywhere in this repository.`;
+      // A genuinely common, valid pattern: slam_toolbox in online-async mode
+      // handles localization against its own evolving map instead of a
+      // separate AMCL package. That's not "no localization" — say so,
+      // rather than leaving a bare "not found" that reads as a gap when the
+      // repo made a real architectural choice instead.
+      if (spec.name === 'Localization' && allDeps.some(({ dep }) => dep.includes('slam_toolbox'))) {
+        evidence += ' This repo depends on slam_toolbox, though — in online-async mode that provides continuous localization against its own map instead of a separate AMCL package, which is a valid alternative architecture, not a missing capability.';
+      }
     }
 
     const nodeName = matchedDeps[0]?.dep || matchedFiles[0]?.path.split('/').pop() || 'Not detected';
@@ -150,7 +168,7 @@ function buildCodebaseReview(
   launchFiles: Array<{ path: string }>,
   yamlConfigFiles: Array<{ path: string }>,
   uniqueSensors: any[],
-  detectedGazeboPlugins: any[]
+  detectedSimulationPlugins: any[]
 ): AutonomyFeatureCheck[] {
   const byName = (n: string) => autonomyModules.find(m => m.name === n);
   const implemented = (n: string) => (byName(n) ? byName(n)!.status !== 'Missing / Unreferenced' : false);
@@ -159,11 +177,23 @@ function buildCodebaseReview(
   const depHas = (...kws: string[]) => allDeps.some(d => kws.some(k => d.includes(k)));
   const allFiles = [...launchFiles, ...yamlConfigFiles];
   const pathHas = (...kws: string[]) => allFiles.some(f => kws.some(k => f.path.toLowerCase().includes(k)));
-  const gazeboHas = (...kws: string[]) => detectedGazeboPlugins.some(p => kws.some(k => `${p.name} ${p.pluginSystem} ${p.sensorType}`.toLowerCase().includes(k)));
+  // Matches on the plugin's own name/pluginSystem/sensorType text, not a
+  // hardcoded simulator assumption — works the same whether the plugin
+  // came from Gazebo, Webots, MuJoCo, or another simulator.
+  const simPluginHas = (...kws: string[]) => detectedSimulationPlugins.some(p => kws.some(k => `${p.name} ${p.pluginSystem} ${p.sensorType}`.toLowerCase().includes(k)));
 
-  const sensorPipelinePresent = uniqueSensors.length > 0 || detectedGazeboPlugins.some(p => p.sensorType !== 'actuator_controller');
-  const motorControlPresent = depHas('ros2_control', 'diff_drive_controller', 'controller_manager') || gazeboHas('diff-drive', 'diff_drive', 'diffdrive');
-  const stateEstimationPresent = depHas('robot_localization', 'ekf') || pathHas('ekf', 'odom', 'localization') || gazeboHas('diff-drive', 'diff_drive', 'diffdrive');
+  const sensorPipelinePresent = uniqueSensors.length > 0 || detectedSimulationPlugins.some(p => p.sensorType !== 'actuator_controller');
+  const motorControlPresent = depHas('ros2_control', 'diff_drive_controller', 'controller_manager') || simPluginHas('diff-drive', 'diff_drive', 'diffdrive');
+  // A ros2_control diff_drive_controller on real hardware computes and
+  // publishes /odom from wheel encoder ticks — that's real state estimation,
+  // not just motor control, even with no separate EKF/robot_localization
+  // package. Previously this only credited robot_localization/EKF or a
+  // *simulated* Gazebo DiffDrive plugin, so a hardware-only repo using
+  // ros2_control's own built-in odometry (a very common real pattern) was
+  // wrongly marked absent.
+  const stateEstimationPresent = depHas('robot_localization', 'ekf', 'ros2_control', 'diff_drive_controller', 'controller_manager')
+    || pathHas('ekf', 'odom', 'localization')
+    || simPluginHas('diff-drive', 'diff_drive', 'diffdrive');
 
   return [
     {
@@ -172,16 +202,16 @@ function buildCodebaseReview(
       present: sensorPipelinePresent,
       evidence: uniqueSensors.length > 0
         ? `${uniqueSensors.length} sensor(s) resolved from real URDF joints: ${uniqueSensors.slice(0, 3).map((s: any) => s.name).join(', ')}.`
-        : detectedGazeboPlugins.some(p => p.sensorType !== 'actuator_controller')
-          ? `${detectedGazeboPlugins.length} Gazebo sensor plugin(s) declared in the URDF/SDF.`
-          : 'No sensor joints or Gazebo sensor plugins were found anywhere in this repository.',
+        : detectedSimulationPlugins.some(p => p.sensorType !== 'actuator_controller')
+          ? `${detectedSimulationPlugins.length} simulation sensor plugin(s) declared in the URDF/SDF.`
+          : 'No sensor joints or simulation sensor plugins were found anywhere in this repository.',
     },
     {
       key: 'motorControl',
       label: 'Motor Control',
       present: motorControlPresent,
       evidence: motorControlPresent
-        ? 'A ros2_control / diff_drive_controller dependency or a Gazebo DiffDrive plugin was found.'
+        ? 'A ros2_control / diff_drive_controller dependency or a simulated DiffDrive plugin was found.'
         : 'No ros2_control, diff_drive_controller dependency, or DiffDrive plugin was found in this repository.',
     },
     {
@@ -189,8 +219,8 @@ function buildCodebaseReview(
       label: 'State Estimation (Odometry)',
       present: stateEstimationPresent,
       evidence: stateEstimationPresent
-        ? 'A robot_localization/EKF dependency, an odometry/localization config file, or a Gazebo DiffDrive plugin (which publishes /odom) was found.'
-        : 'No robot_localization/EKF dependency, odometry config, or odometry-publishing plugin was found.',
+        ? 'A robot_localization/EKF dependency, a ros2_control diff_drive_controller (publishes /odom from wheel encoders on real hardware), an odometry/localization config file, or a simulated DiffDrive plugin was found.'
+        : 'No robot_localization/EKF dependency, ros2_control diff_drive_controller, odometry config, or odometry-publishing plugin was found.',
     },
     {
       key: 'slam',
@@ -298,7 +328,7 @@ function parseRpy(str: string) {
   return { r: parts[0] || 0, p: parts[1] || 0, y: parts[2] || 0 };
 }
 
-// Deterministic regex-based fallback — used only when the Gemini agent is
+// Deterministic regex-based fallback — used only when the LLM agent is
 // unavailable (no API key, quota, network error) so an audit still
 // completes. Materially less accurate than the agent (see known false
 // positives noted inline) but keeps the app functional without an LLM.
@@ -311,7 +341,11 @@ async function regexFallbackParse(
   sendEvent: (data: Record<string, any>) => void
 ) {
   const parsedSensors: any[] = [];
-  const detectedGazeboPlugins: any[] = [];
+  // Unlike the LLM agent path, this deterministic fallback only ever
+  // recognizes Gazebo/Ignition signals (<gazebo>, libignition, gz-sim) — it
+  // has no way to detect Webots/O3DE/Isaac Sim/MuJoCo plugins. That's an
+  // honest limitation of a regex parser, not a naming choice.
+  const detectedSimulationPlugins: any[] = [];
 
   for (const urdfFile of urdfFiles) {
     sendEvent({ stage: 'PARSING_URDF', log: `[Fallback parser] Extracting joint transforms from ${urdfFile.path}...` });
@@ -324,7 +358,7 @@ async function regexFallbackParse(
 
         if (urdfText.includes('<gazebo') || urdfText.includes('libignition') || urdfText.includes('libgazebo') || urdfText.includes('gz-sim')) {
           if (urdfText.includes('sensors-system') || urdfText.includes('gpu_lidar') || urdfText.includes('ray')) {
-            detectedGazeboPlugins.push({
+            detectedSimulationPlugins.push({
               name: "Ignition/Gazebo GPU LiDAR Sensor System",
               targetLink: "rplidar_laser_link",
               sensorType: "gpu_lidar",
@@ -334,7 +368,7 @@ async function regexFallbackParse(
             });
           }
           if (urdfText.includes('diff_drive') || urdfText.includes('diff-drive')) {
-            detectedGazeboPlugins.push({
+            detectedSimulationPlugins.push({
               name: "Ignition/Gazebo DiffDrive Actuator Controller",
               targetLink: "base_link",
               sensorType: "actuator_controller",
@@ -416,7 +450,7 @@ async function regexFallbackParse(
 
   return {
     sensors: uniqueSensors,
-    gazeboPlugins: detectedGazeboPlugins,
+    simulationPlugins: detectedSimulationPlugins,
     noSensorsDetected,
     chassis: null as any,
     chassisEstimatedFields: ['length', 'width', 'height', 'wheelbase', 'wheelRadius', 'totalMassKg'],
@@ -561,9 +595,10 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Step 5: Real agentic analysis via Gemini (sensors, chassis, gazebo
-        // plugins, topics) — falls back to the regex parser only if the
-        // agent is unavailable, so an audit always completes.
+        // Step 5: Real agentic analysis via the configured LLM provider
+        // (sensors, chassis, simulation plugins, topics) — falls back to
+        // the regex parser only if the agent is unavailable, so an audit
+        // always completes.
         let agentResult: AgenticAnalysisResult | null = null;
         let agentError: string | null = null;
 
@@ -612,7 +647,7 @@ export async function POST(req: NextRequest) {
         });
 
         let uniqueSensors: any[];
-        let detectedGazeboPlugins: any[];
+        let detectedSimulationPlugins: any[];
         let noSensorsDetected: boolean;
         let chassis: any = null;
         let chassisEstimatedFields: string[] = [];
@@ -637,8 +672,9 @@ export async function POST(req: NextRequest) {
             sourceFile: s.sourceFile,
             estimated: s.estimated,
             meshUrl: null,
+            detailedParams: s.detailedParams || [],
           }));
-          detectedGazeboPlugins = agentResult.gazeboPlugins;
+          detectedSimulationPlugins = agentResult.simulationPlugins;
           noSensorsDetected = uniqueSensors.length === 0;
           const agentEstimated = new Set(agentResult.chassis?.estimatedFields || []);
           chassis = agentResult.chassis
@@ -652,7 +688,7 @@ export async function POST(req: NextRequest) {
         } else {
           const fallback = await regexFallbackParse(owner, repo, targetBranch, urdfFiles, tree, sendEvent);
           uniqueSensors = fallback.sensors;
-          detectedGazeboPlugins = fallback.gazeboPlugins;
+          detectedSimulationPlugins = fallback.simulationPlugins;
           noSensorsDetected = fallback.noSensorsDetected;
           chassisEstimatedFields = fallback.chassisEstimatedFields;
         }
@@ -673,7 +709,7 @@ export async function POST(req: NextRequest) {
         // filenames) and a fixed, restricted autonomy-feature checklist
         // (not the full autonomyModules breakdown above).
         const robotVariants = detectRobotVariants(urdfFiles, agentResult?.robotName || repo.charAt(0).toUpperCase() + repo.slice(1));
-        const codebaseReview = buildCodebaseReview(autonomyModules, parsedPackages, launchFiles, yamlConfigFiles, uniqueSensors, detectedGazeboPlugins);
+        const codebaseReview = buildCodebaseReview(autonomyModules, parsedPackages, launchFiles, yamlConfigFiles, uniqueSensors, detectedSimulationPlugins);
 
         // Step 7: Build Sensor-to-Module Mapping & Data-Flow Pipeline from what was ACTUALLY detected
         const sensorToModuleMappings: any[] = [];
@@ -710,7 +746,7 @@ export async function POST(req: NextRequest) {
         const edges: any[] = [];
         if (hasLidar) {
           nodes.push({ id: "s1", label: uniqueSensors.find(s => s.type.includes('LiDAR'))!.name.split('(')[0].trim(), type: "sensor", rosTopic: "/scan", rosMessageType: "sensor_msgs/msg/LaserScan" });
-          nodes.push({ id: "d1", label: "Laser Driver / Gazebo Sensor System", type: "driver", rosTopic: "/scan" });
+          nodes.push({ id: "d1", label: "Laser Driver / Simulation Sensor System", type: "driver", rosTopic: "/scan" });
           nodes.push({ id: "p1", label: "LaserScan Filter / Debounce", type: "preprocessing" });
           edges.push({ from: "s1", to: "d1", label: "Raw Laser Pulses" }, { from: "d1", to: "p1", label: "/scan [LaserScan]" });
           if (implementedModuleNames.has('SLAM')) {
@@ -760,7 +796,7 @@ export async function POST(req: NextRequest) {
           agentReasoningSummary: agentResult?.reasoningSummary || null,
           chassis,
           chassisEstimatedFields,
-          gazeboPlugins: detectedGazeboPlugins,
+          simulationPlugins: detectedSimulationPlugins,
           topics: agentResult?.topics?.length ? agentResult.topics : [
             ...(hasLidar ? [{ topic: "/scan", type: "sensor_msgs/msg/LaserScan", direction: "Publisher" as const, nodeOwner: "lidar_driver", description: "2D laser scan for SLAM & Nav2" }] : []),
             ...(hasCamera ? [{ topic: "/image_raw", type: "sensor_msgs/msg/Image", direction: "Publisher" as const, nodeOwner: "camera_driver", description: "Raw RGB camera stream" }] : []),

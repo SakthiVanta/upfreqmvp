@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { CheckSquare, Square, Bot, ListChecks, Info, X, Cpu, FileCode, Ruler, Pencil, Plus } from 'lucide-react';
+import { CheckSquare, Square, Bot, ListChecks, Info, X, Cpu, FileCode, Ruler, Pencil, Plus, Compass, Waypoints } from 'lucide-react';
 import { AutonomyFeatureCheck, RobotModelDetail, RobotProfile } from '@/lib/robot-profile';
 
 function MetricValue({ value, unit }: { value: number | null; unit: string }) {
@@ -65,6 +65,17 @@ export function CodebaseReview({ robot, onUpdate }: { robot: RobotProfile; onUpd
       ? robotModels.map((m, i) => (i === idx ? updated : m))
       : [...robotModels, updated];
     onUpdate({ ...robot, robotModels: nextModels });
+  };
+
+  // Sensors and simulationPlugins are top-level RobotProfile fields, not
+  // per-variant robotModels data, so they need their own save path straight
+  // onto the full profile rather than going through handleSaveRobotDetail.
+  const handleSaveSensorsAndPlugins = (
+    sensors: RobotProfile['sensors'],
+    simulationPlugins: RobotProfile['simulationPlugins']
+  ) => {
+    if (!onUpdate) return;
+    onUpdate({ ...robot, sensors, simulationPlugins });
   };
 
   return (
@@ -147,8 +158,11 @@ export function CodebaseReview({ robot, onUpdate }: { robot: RobotProfile; onUpd
         <RobotDetailModal
           variant={viewingVariant}
           detail={viewingDetail}
+          sensors={robot.sensors}
+          simulationPlugins={robot.simulationPlugins}
           onClose={() => setViewingVariant(null)}
           onSave={onUpdate ? handleSaveRobotDetail : undefined}
+          onSaveSensorsAndPlugins={onUpdate ? handleSaveSensorsAndPlugins : undefined}
         />
       )}
 
@@ -427,16 +441,64 @@ function visibleMetricsFrom(m: RobotModelDetail['metrics'] | undefined): Set<str
   return new Set(METRIC_FIELDS.filter(({ key }) => src[key] != null).map(f => f.key));
 }
 
+interface SensorDraft {
+  id: string;
+  name: string; type: string; linkName: string; parentLink: string; frameId: string;
+  x: string; y: string; z: string; r: string; p: string; yaw: string;
+  detailedParams: RobotProfile['sensors'][number]['detailedParams'];
+}
+interface PluginDraft {
+  name: string; targetLink: string; sensorType: string; pluginSystem: string; rosTopic: string; rosMessageType: string;
+  parameters: RobotProfile['simulationPlugins'][number]['parameters'];
+}
+
+function sensorToDraft(s: RobotProfile['sensors'][number]): SensorDraft {
+  return {
+    id: s.id,
+    name: s.name, type: s.type, linkName: s.linkName, parentLink: s.parentLink, frameId: s.frameId,
+    x: s.position?.x?.toString() ?? '', y: s.position?.y?.toString() ?? '', z: s.position?.z?.toString() ?? '',
+    r: s.orientation?.r?.toString() ?? '', p: s.orientation?.p?.toString() ?? '', yaw: s.orientation?.y?.toString() ?? '',
+    detailedParams: s.detailedParams,
+  };
+}
+function draftToSensor(d: SensorDraft): RobotProfile['sensors'][number] {
+  const num = (v: string) => (v.trim() === '' ? null : Number(v));
+  const x = num(d.x), y = num(d.y), z = num(d.z), r = num(d.r), p = num(d.p), yaw = num(d.yaw);
+  return {
+    id: d.id,
+    name: d.name.trim(), type: d.type.trim(), linkName: d.linkName.trim(), parentLink: d.parentLink.trim(), frameId: d.frameId.trim(),
+    position: x != null && y != null && z != null ? { x, y, z } : null,
+    orientation: r != null && p != null && yaw != null ? { r, p, y: yaw } : null,
+    detailedParams: d.detailedParams,
+  };
+}
+function pluginToDraft(p: RobotProfile['simulationPlugins'][number]): PluginDraft {
+  return { name: p.name, targetLink: p.targetLink, sensorType: p.sensorType, pluginSystem: p.pluginSystem, rosTopic: p.rosTopic, rosMessageType: p.rosMessageType, parameters: p.parameters };
+}
+function draftToPlugin(d: PluginDraft): RobotProfile['simulationPlugins'][number] {
+  return { name: d.name.trim(), targetLink: d.targetLink.trim(), sensorType: d.sensorType.trim(), pluginSystem: d.pluginSystem.trim(), rosTopic: d.rosTopic.trim(), rosMessageType: d.rosMessageType.trim(), parameters: d.parameters };
+}
+function emptySensorDraft(): SensorDraft {
+  return { id: `sensor_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, name: '', type: '', linkName: '', parentLink: '', frameId: '', x: '', y: '', z: '', r: '', p: '', yaw: '', detailedParams: [] };
+}
+const EMPTY_PLUGIN_DRAFT: PluginDraft = { name: '', targetLink: '', sensorType: '', pluginSystem: '', rosTopic: '', rosMessageType: '', parameters: [] };
+
 function RobotDetailModal({
   variant,
   detail,
+  sensors,
+  simulationPlugins,
   onClose,
   onSave,
+  onSaveSensorsAndPlugins,
 }: {
   variant: string;
   detail: RobotModelDetail | null;
+  sensors: RobotProfile['sensors'];
+  simulationPlugins: RobotProfile['simulationPlugins'];
   onClose: () => void;
   onSave?: (updated: RobotModelDetail) => void;
+  onSaveSensorsAndPlugins?: (sensors: RobotProfile['sensors'], simulationPlugins: RobotProfile['simulationPlugins']) => void;
 }) {
   const [editMode, setEditMode] = useState(false);
   const [draftFormFactor, setDraftFormFactor] = useState(detail?.formFactor || '');
@@ -450,6 +512,8 @@ function RobotDetailModal({
   const [draftCustomMetrics, setDraftCustomMetrics] = useState<{ label: string; value: string }[]>(
     detail?.customMetrics ? detail.customMetrics.map(m => ({ ...m })) : []
   );
+  const [draftSensors, setDraftSensors] = useState<SensorDraft[]>(() => sensors.map(sensorToDraft));
+  const [draftPlugins, setDraftPlugins] = useState<PluginDraft[]>(() => simulationPlugins.map(pluginToDraft));
   const [newActuator, setNewActuator] = useState('');
   const [newAssetLabel, setNewAssetLabel] = useState('');
   const [newAssetPath, setNewAssetPath] = useState('');
@@ -470,6 +534,8 @@ function RobotDetailModal({
     setDraftActuators(detail?.actuatorsSensors ? [...detail.actuatorsSensors] : []);
     setDraftAssets(detail?.simulationAssets ? detail.simulationAssets.map(a => ({ ...a })) : []);
     setDraftCustomMetrics(detail?.customMetrics ? detail.customMetrics.map(m => ({ ...m })) : []);
+    setDraftSensors(sensors.map(sensorToDraft));
+    setDraftPlugins(simulationPlugins.map(pluginToDraft));
     setEditMode(true);
   };
 
@@ -499,23 +565,27 @@ function RobotDetailModal({
   };
 
   const handleSave = () => {
-    if (!onSave) return;
-    const metrics = {} as RobotModelDetail['metrics'];
-    for (const { key } of METRIC_FIELDS) {
-      if (!visibleMetrics.has(key)) { metrics[key] = null; continue; }
-      const raw = draftMetrics[key].trim();
-      metrics[key] = raw === '' ? null : Number(raw);
+    if (onSave) {
+      const metrics = {} as RobotModelDetail['metrics'];
+      for (const { key } of METRIC_FIELDS) {
+        if (!visibleMetrics.has(key)) { metrics[key] = null; continue; }
+        const raw = draftMetrics[key].trim();
+        metrics[key] = raw === '' ? null : Number(raw);
+      }
+      onSave({
+        modelName: detail?.modelName || variant,
+        modelVariable: detail?.modelVariable || variant,
+        formFactor: draftFormFactor.trim(),
+        rolePurpose: draftRolePurpose.trim(),
+        actuatorsSensors: draftActuators,
+        simulationAssets: draftAssets,
+        metrics,
+        customMetrics: draftCustomMetrics,
+      });
     }
-    onSave({
-      modelName: detail?.modelName || variant,
-      modelVariable: detail?.modelVariable || variant,
-      formFactor: draftFormFactor.trim(),
-      rolePurpose: draftRolePurpose.trim(),
-      actuatorsSensors: draftActuators,
-      simulationAssets: draftAssets,
-      metrics,
-      customMetrics: draftCustomMetrics,
-    });
+    if (onSaveSensorsAndPlugins) {
+      onSaveSensorsAndPlugins(draftSensors.map(draftToSensor), draftPlugins.map(draftToPlugin));
+    }
     setEditMode(false);
   };
 
@@ -543,7 +613,7 @@ function RobotDetailModal({
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {onSave && !editMode && (
+            {(onSave || onSaveSensorsAndPlugins) && !editMode && (
               <button onClick={enterEditMode} className="text-sand-400 hover:text-sand-50 p-1.5 rounded-lg hover:bg-sand-800 cursor-pointer" title="Edit">
                 <Pencil className="h-4 w-4" />
               </button>
@@ -878,6 +948,211 @@ function RobotDetailModal({
                   : 'This audit ran without the Gemini agent, or was run before per-robot detail was added. Re-run the AI audit to fetch it.'}
               </p>
             </div>
+          )}
+
+          {/* Repo-wide, not per-variant — shown regardless of whether the
+              agent resolved a per-variant deep breakdown above, since this
+              comes from the top-level audit, not robotModels. Editable
+              under the same single Edit toggle as everything else here,
+              saved via onSaveSensorsAndPlugins (a separate path from
+              onSave since these are RobotProfile fields, not
+              RobotModelDetail ones). */}
+          {editMode ? (
+            <>
+              <div>
+                <h4 className="text-xs font-bold text-sand-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Compass className="h-3.5 w-3.5" />
+                  Sensors
+                </h4>
+                <div className="space-y-3">
+                  {draftSensors.map((s, idx) => (
+                    <div key={idx} className="p-3 border border-sand-800 bg-sand-950 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="grid grid-cols-2 gap-2 flex-1">
+                          <input type="text" value={s.name} onChange={(e) => setDraftSensors(prev => prev.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
+                            placeholder="Sensor name" className="px-2.5 py-1.5 border border-sand-700 bg-sand-950 text-sand-50 text-xs focus:outline-none focus:border-emerald-primary" />
+                          <input type="text" value={s.type} onChange={(e) => setDraftSensors(prev => prev.map((x, i) => i === idx ? { ...x, type: e.target.value } : x))}
+                            placeholder="Type, e.g. LiDAR" className="px-2.5 py-1.5 border border-sand-700 bg-sand-950 text-sand-50 text-xs focus:outline-none focus:border-emerald-primary" />
+                        </div>
+                        <button onClick={() => setDraftSensors(prev => prev.filter((_, i) => i !== idx))} className="p-1.5 text-sand-500 hover:text-rose-400 shrink-0 cursor-pointer">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="text" value={s.linkName} onChange={(e) => setDraftSensors(prev => prev.map((x, i) => i === idx ? { ...x, linkName: e.target.value } : x))}
+                          placeholder="Link name" className="px-2.5 py-1.5 border border-sand-700 bg-sand-950 text-sand-50 text-xs font-mono focus:outline-none focus:border-emerald-primary" />
+                        <input type="text" value={s.parentLink} onChange={(e) => setDraftSensors(prev => prev.map((x, i) => i === idx ? { ...x, parentLink: e.target.value } : x))}
+                          placeholder="Parent link" className="px-2.5 py-1.5 border border-sand-700 bg-sand-950 text-sand-50 text-xs font-mono focus:outline-none focus:border-emerald-primary" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-sand-500 uppercase font-bold">Position (x, y, z)</span>
+                        <div className="grid grid-cols-3 gap-2 mt-1">
+                          {(['x', 'y', 'z'] as const).map((axis) => (
+                            <input key={axis} type="number" step="any" value={s[axis]} onChange={(e) => setDraftSensors(prev => prev.map((x, i) => i === idx ? { ...x, [axis]: e.target.value } : x))}
+                              placeholder={axis} className="px-2.5 py-1.5 border border-sand-700 bg-sand-950 text-sand-50 text-xs font-mono focus:outline-none focus:border-emerald-primary" />
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-sand-500 uppercase font-bold">Orientation (r, p, y)</span>
+                        <div className="grid grid-cols-3 gap-2 mt-1">
+                          {(['r', 'p', 'yaw'] as const).map((axis) => (
+                            <input key={axis} type="number" step="any" value={s[axis]} onChange={(e) => setDraftSensors(prev => prev.map((x, i) => i === idx ? { ...x, [axis]: e.target.value } : x))}
+                              placeholder={axis === 'yaw' ? 'y' : axis} className="px-2.5 py-1.5 border border-sand-700 bg-sand-950 text-sand-50 text-xs font-mono focus:outline-none focus:border-emerald-primary" />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setDraftSensors(prev => [...prev, emptySensorDraft()])}
+                    className="w-full py-2 border border-dashed border-sand-700 text-sand-400 hover:text-sand-50 hover:bg-sand-800 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Sensor
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-xs font-bold text-sand-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Waypoints className="h-3.5 w-3.5" />
+                  Simulation Plugins
+                </h4>
+                <div className="space-y-3">
+                  {draftPlugins.map((p, idx) => (
+                    <div key={idx} className="p-3 border border-sand-800 bg-sand-950 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <input type="text" value={p.name} onChange={(e) => setDraftPlugins(prev => prev.map((x, i) => i === idx ? { ...x, name: e.target.value } : x))}
+                          placeholder="Plugin name" className="flex-1 px-2.5 py-1.5 border border-sand-700 bg-sand-950 text-sand-50 text-xs focus:outline-none focus:border-emerald-primary" />
+                        <button onClick={() => setDraftPlugins(prev => prev.filter((_, i) => i !== idx))} className="p-1.5 text-sand-500 hover:text-rose-400 shrink-0 cursor-pointer">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="text" value={p.targetLink} onChange={(e) => setDraftPlugins(prev => prev.map((x, i) => i === idx ? { ...x, targetLink: e.target.value } : x))}
+                          placeholder="Target link" className="px-2.5 py-1.5 border border-sand-700 bg-sand-950 text-sand-50 text-xs font-mono focus:outline-none focus:border-emerald-primary" />
+                        <input type="text" value={p.sensorType} onChange={(e) => setDraftPlugins(prev => prev.map((x, i) => i === idx ? { ...x, sensorType: e.target.value } : x))}
+                          placeholder="Sensor type" className="px-2.5 py-1.5 border border-sand-700 bg-sand-950 text-sand-50 text-xs focus:outline-none focus:border-emerald-primary" />
+                      </div>
+                      <input type="text" value={p.pluginSystem} onChange={(e) => setDraftPlugins(prev => prev.map((x, i) => i === idx ? { ...x, pluginSystem: e.target.value } : x))}
+                        placeholder="Plugin system identifier" className="w-full px-2.5 py-1.5 border border-sand-700 bg-sand-950 text-sand-50 text-xs font-mono focus:outline-none focus:border-emerald-primary" />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="text" value={p.rosTopic} onChange={(e) => setDraftPlugins(prev => prev.map((x, i) => i === idx ? { ...x, rosTopic: e.target.value } : x))}
+                          placeholder="ROS topic" className="px-2.5 py-1.5 border border-sand-700 bg-sand-950 text-sand-50 text-xs font-mono focus:outline-none focus:border-emerald-primary" />
+                        <input type="text" value={p.rosMessageType} onChange={(e) => setDraftPlugins(prev => prev.map((x, i) => i === idx ? { ...x, rosMessageType: e.target.value } : x))}
+                          placeholder="Message type" className="px-2.5 py-1.5 border border-sand-700 bg-sand-950 text-sand-50 text-xs font-mono focus:outline-none focus:border-emerald-primary" />
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setDraftPlugins(prev => [...prev, { ...EMPTY_PLUGIN_DRAFT }])}
+                    className="w-full py-2 border border-dashed border-sand-700 text-sand-400 hover:text-sand-50 hover:bg-sand-800 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Simulation Plugin
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              {sensors.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-bold text-sand-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Compass className="h-3.5 w-3.5" />
+                    Sensors ({sensors.length})
+                  </h4>
+                  <div className="overflow-x-auto border border-sand-800">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-sand-925 border-b border-sand-800 text-sand-500 font-semibold uppercase tracking-wide">
+                          <th className="py-2 px-3">Sensor</th>
+                          <th className="py-2 px-3">Link</th>
+                          <th className="py-2 px-3">Position (x, y, z)</th>
+                          <th className="py-2 px-3">Orientation (r, p, y)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-sand-800">
+                        {sensors.map((s, idx) => (
+                          <tr key={idx}>
+                            <td className="py-2.5 px-3 align-top">
+                              <div className="font-bold text-sand-50">{s.name}</div>
+                              <div className="text-sand-500">{s.type}</div>
+                              {s.detailedParams && s.detailedParams.length > 0 && (
+                                <div className="text-[10px] text-sand-500 mt-1 leading-relaxed">
+                                  {s.detailedParams.map((p, i) => (
+                                    <span key={i}>
+                                      {i > 0 && ' · '}
+                                      {p.label}: {p.value}{p.unit ? ` ${p.unit}` : ''}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 align-top font-mono text-sand-300">{s.linkName}</td>
+                            <td className="py-2.5 px-3 align-top font-mono text-sand-300">
+                              {s.position ? `${s.position.x}, ${s.position.y}, ${s.position.z}` : (
+                                <span className="text-amber-600 font-bold">Not determined</span>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 align-top font-mono text-sand-300">
+                              {s.orientation ? `${s.orientation.r}, ${s.orientation.p}, ${s.orientation.y}` : (
+                                <span className="text-amber-600 font-bold">Not determined</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {simulationPlugins.length > 0 && (
+                <div>
+                  <h4 className="text-xs font-bold text-sand-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Waypoints className="h-3.5 w-3.5" />
+                    Simulation Plugins ({simulationPlugins.length})
+                  </h4>
+                  <div className="overflow-x-auto border border-sand-800">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-sand-925 border-b border-sand-800 text-sand-500 font-semibold uppercase tracking-wide">
+                          <th className="py-2 px-3">Plugin</th>
+                          <th className="py-2 px-3">Target Link</th>
+                          <th className="py-2 px-3">ROS Topic</th>
+                          <th className="py-2 px-3">Message Type</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-sand-800">
+                        {simulationPlugins.map((p, idx) => (
+                          <tr key={idx}>
+                            <td className="py-2.5 px-3 align-top">
+                              <div className="font-bold text-sand-50">{p.name}</div>
+                              <div className="text-sand-500">
+                                {p.sensorType}{p.updateRateHz != null ? ` · ${p.updateRateHz} Hz` : ''}
+                              </div>
+                              {p.parameters && p.parameters.length > 0 && (
+                                <div className="text-[10px] text-sand-500 mt-1 leading-relaxed">
+                                  {p.parameters.map((x, i) => (
+                                    <span key={i}>
+                                      {i > 0 && ' · '}
+                                      {x.label}: {x.value}{x.unit ? ` ${x.unit}` : ''}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3 align-top font-mono text-sand-300">{p.targetLink}</td>
+                            <td className="py-2.5 px-3 align-top font-mono text-emerald-primary font-bold">{p.rosTopic}</td>
+                            <td className="py-2.5 px-3 align-top text-sand-400">{p.rosMessageType}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
