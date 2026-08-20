@@ -85,8 +85,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           )}
 
           <Link href="/projects" className="flex items-center gap-2.5 overflow-hidden">
+            {/* Collapsed sizing is deliberately matched to the nav item
+                pill's rendered width (40px: 64px rail − nav's own 12px×2
+                padding), not the expanded logo size — the brand mark should
+                never read smaller than a regular nav icon's button. */}
             <div className={`rounded-lg bg-emerald-primary text-sand-950 flex items-center justify-center font-bold shrink-0 ${
-              sidebarCollapsed ? 'h-8 w-8 text-xs' : 'h-9 w-9 lg:h-10 lg:w-10 text-sm lg:text-base'
+              sidebarCollapsed ? 'h-10 w-10 text-sm' : 'h-9 w-9 lg:h-10 lg:w-10 text-sm lg:text-base'
             }`}>
               UF
             </div>
