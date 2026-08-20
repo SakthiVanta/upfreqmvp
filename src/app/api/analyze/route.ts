@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server';
-import { saveRobotProfile } from '@/lib/neon-db';
+import { saveRobotProfile } from '@/lib/db/robots';
+import { getAgentSettings } from '@/lib/db/settings';
+import { resolveApiKey } from '@/lib/db/api-keys';
 import { createDynamicRobotProfileFromUrl } from '@/lib/robot-profile';
-import { runAgenticAnalysis, AgenticAnalysisResult } from '@/lib/gemini-agent';
+import { runAgenticAnalysis, AgenticAnalysisResult } from '@/lib/agent';
 
 export const runtime = 'nodejs';
 
@@ -423,6 +425,7 @@ async function regexFallbackParse(
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const repoUrl = body.repoUrl;
+  const projectId = typeof body.projectId === 'string' ? body.projectId : null;
 
   if (!repoUrl || typeof repoUrl !== 'string' || !repoUrl.trim()) {
     return new Response(
@@ -571,15 +574,23 @@ export async function POST(req: NextRequest) {
           .filter((p, idx, self) => self.indexOf(p) === idx)
           .slice(0, 250);
 
-        sendEvent({ stage: 'AGENT_START', log: `Handing ${relevantPaths.length} relevant file(s) to the Gemini agent for real tool-use analysis...` });
+        const agentSettings = await getAgentSettings();
+        const apiKey = await resolveApiKey(agentSettings.provider);
 
-        try {
-          agentResult = await runAgenticAnalysis(owner, repo, targetBranch, relevantPaths, (log) => {
-            sendEvent({ stage: 'AGENT_STEP', log });
-          });
-        } catch (err: any) {
-          agentError = err.message;
-          sendEvent({ stage: 'AGENT_FALLBACK', log: `Gemini agent unavailable (${agentError}) — falling back to heuristic regex parsing for sensors/chassis/plugins.` });
+        sendEvent({ stage: 'AGENT_START', log: `Handing ${relevantPaths.length} relevant file(s) to the ${agentSettings.provider} agent for real tool-use analysis...` });
+
+        if (!apiKey) {
+          agentError = `No API key configured for ${agentSettings.provider} — add one in Settings, or set its server env var.`;
+          sendEvent({ stage: 'AGENT_FALLBACK', log: `${agentError} Falling back to heuristic regex parsing for sensors/chassis/plugins.` });
+        } else {
+          try {
+            agentResult = await runAgenticAnalysis(agentSettings, apiKey, owner, repo, targetBranch, relevantPaths, (log) => {
+              sendEvent({ stage: 'AGENT_STEP', log });
+            });
+          } catch (err: any) {
+            agentError = err.message;
+            sendEvent({ stage: 'AGENT_FALLBACK', log: `${agentSettings.provider} agent unavailable (${agentError}) — falling back to heuristic regex parsing for sensors/chassis/plugins.` });
+          }
         }
 
         let uniqueSensors: any[];
@@ -757,15 +768,16 @@ export async function POST(req: NextRequest) {
           launchFiles: launchFiles.map(f => f.path),
           yamlConfigFiles: yamlConfigFiles.map(f => f.path),
           diagnosticsNotice: agentResult
-            ? `Gemini agentic analysis: ${agentResult.toolCallCount} tool call(s) across the repo. ${agentResult.reasoningSummary}`
-            : `Heuristic fallback parser (Gemini unavailable: ${agentError}): discovered ${parsedPackages.length} ROS 2 sub-package(s), ${uniqueSensors.length} sensor(s). Chassis dimensions could not be determined by this parser and are not shown.`
+            ? `${agentSettings.provider} agentic analysis (${agentSettings.model}): ${agentResult.toolCallCount} tool call(s) across the repo. ${agentResult.reasoningSummary}`
+            : `Heuristic fallback parser (${agentSettings.provider} unavailable: ${agentError}): discovered ${parsedPackages.length} ROS 2 sub-package(s), ${uniqueSensors.length} sensor(s). Chassis dimensions could not be determined by this parser and are not shown.`
         };
 
-        // Persist the full profile (same shape the client renders) to Neon.
-        // The log line reflects what actually happened — no success claim
-        // on a failed or skipped write.
+        // Persist the full profile (same shape the client renders) to Neon,
+        // linked to the project it was audited from if one was given. The
+        // log line reflects what actually happened — no success claim on a
+        // failed or skipped write.
         const fullProfile = createDynamicRobotProfileFromUrl(repoUrl, analysisResult);
-        const saveResult = await saveRobotProfile(fullProfile);
+        const saveResult = await saveRobotProfile(fullProfile, projectId);
 
         sendEvent({
           stage: saveResult.success ? 'DB_SAVED' : 'DB_SAVE_SKIPPED',
@@ -774,8 +786,11 @@ export async function POST(req: NextRequest) {
             : `Analysis complete, but persistence to Neon PostgreSQL was skipped or failed — DATABASE_URL may not be configured.`
         });
 
-        // Stream Completion
-        sendEvent({ stage: 'COMPLETE', isRosRepo: true, result: analysisResult, robotId: saveResult.id });
+        // Stream Completion — sends the fully-built RobotProfile (not the
+        // raw analysisResult) so the client can use it directly without
+        // re-deriving the same profile a second time via
+        // createDynamicRobotProfileFromUrl.
+        sendEvent({ stage: 'COMPLETE', isRosRepo: true, result: fullProfile, robotId: saveResult.id });
         controller.close();
       } catch (err: any) {
         sendEvent({ stage: 'ERROR', isRosRepo: false, message: `Server error during analysis: ${err.message}` });
