@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { GithubIcon } from '@/components/ui/github-icon';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { useToast } from '@/components/ui/toast';
 import {
   LogOut, Menu, X, RefreshCw, Database, FolderOpen, Settings
 } from 'lucide-react';
@@ -17,20 +19,28 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuth();
+  const confirm = useConfirm();
+  const toast = useToast();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isResettingDb, setIsResettingDb] = useState(false);
 
   const handleResetDatabase = async () => {
-    if (!confirm('Are you sure you want to reset the database and clear all workspace data to only the demo user?')) return;
+    const ok = await confirm({
+      title: 'Reset Database',
+      message: 'Are you sure you want to reset the database and clear all workspace data to only the demo user? This cannot be undone.',
+      confirmLabel: 'Reset Database',
+      danger: true,
+    });
+    if (!ok) return;
 
     setIsResettingDb(true);
     try {
       await fetch('/api/db/reset', { method: 'POST' });
-      alert('Database and workspace reset complete! Reinitialized with clean Demo User.');
+      toast.success('Database and workspace reset complete! Reinitialized with clean Demo User.');
       window.location.href = '/projects';
     } catch (e) {
-      alert('Workspace reset finished.');
+      toast.error('Workspace reset finished.');
       window.location.reload();
     } finally {
       setIsResettingDb(false);

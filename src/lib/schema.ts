@@ -62,6 +62,9 @@ export const agentSettings = pgTable('agent_settings', {
   userId: varchar('user_id', { length: 255 }).primaryKey().references(() => users.id, { onDelete: 'cascade' }),
   provider: varchar('provider', { length: 50 }).notNull().default('gemini'),
   model: varchar('model', { length: 150 }).notNull().default('gemini-3.5-flash-lite'),
+  /** Anthropic's output_config.effort (low/medium/high/xhigh/max) — null
+   * means "use the API default (high)". Ignored by every other provider. */
+  effort: varchar('effort', { length: 20 }),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
@@ -97,3 +100,30 @@ export const userApiKeys = pgTable('user_api_keys', {
 }, (table) => [
   uniqueIndex('user_api_keys_user_provider_idx').on(table.userId, table.provider),
 ]);
+
+// 8. Audit Runs — telemetry for every /api/analyze run: real token usage
+// pulled from each provider's own response (see src/lib/agent/), not
+// estimated. This is the only source of truth for "how much does an audit
+// actually cost" — before this table existed there was no way to answer
+// that question at all. Written whether the run succeeded, fell back to the
+// regex parser, or errored, so failures are visible too.
+export const auditRuns = pgTable('audit_runs', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  projectId: varchar('project_id', { length: 255 }).references(() => projects.id, { onDelete: 'set null' }),
+  repoUrl: text('repo_url').notNull(),
+  provider: varchar('provider', { length: 50 }).notNull(),
+  model: varchar('model', { length: 150 }).notNull(),
+  usedAgenticAnalysis: boolean('used_agentic_analysis').notNull(),
+  /** Null when the agent path never ran at all (e.g. no key configured) — a
+   * distinct case from ran-but-fell-back partway through. */
+  toolCallCount: integer('tool_call_count'),
+  apiCallCount: integer('api_call_count'),
+  inputTokens: integer('input_tokens'),
+  cachedInputTokens: integer('cached_input_tokens'),
+  outputTokens: integer('output_tokens'),
+  totalTokens: integer('total_tokens'),
+  durationMs: integer('duration_ms').notNull(),
+  errorMessage: text('error_message'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});

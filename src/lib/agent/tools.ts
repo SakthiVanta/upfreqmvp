@@ -6,10 +6,26 @@
 // redefining any of this — the only thing that differs per provider is the
 // wire format for "call a model with these tools" (see each provider file).
 
-import { AgenticAnalysisResult } from './types';
+import { AgenticAnalysisResult, AgentTokenUsage } from './types';
 
 export const READ_FILE_TOOL_NAME = 'read_file';
 export const SUBMIT_TOOL_NAME = 'submit_analysis';
+
+// Naive tool-use loops resend the ENTIRE conversation on every call, so
+// total billed tokens grow O(n^2) in the number of files read — by the time
+// a complex repo (Andino-style, a dozen-plus reads) hits its 10th read_file
+// result, every subsequent call is re-paying for files already fully
+// processed. Once a read_file result is older than this many tool calls, its
+// full text gets replaced with a short marker (see compactedFilePlaceholder)
+// instead of being carried forever — the model already extracted what it
+// needed from it; if it genuinely needs the file again, read_file is one
+// cheap call away. Keeping the most recent few in full gives the model
+// working memory for whatever it's actively cross-referencing right now.
+export const KEEP_RECENT_FILE_READS = 6;
+
+export function compactedFilePlaceholder(path: string, originalLength: number): string {
+  return `[Content of ${path} already read earlier in this session (${originalLength} chars) — omitted here to keep context small. Call read_file again if you need to re-check it.]`;
+}
 
 // Real repos with heavily YAML-templated chassis/sensor properties (e.g.
 // Andino's base/wheel/motor/lidar_base/battery_base/sensors/hardware.yaml —
@@ -61,13 +77,15 @@ const SUBMIT_ANALYSIS_PARAMETERS: JsonSchema = {
         wheelbase: { type: 'number', description: 'meters, distance between left/right drive wheels' },
         wheelRadius: { type: 'number', description: 'meters' },
         totalMassKg: { type: 'number' },
+        maxSpeedLinearMs: { type: 'number', description: 'm/s — from a diff_drive_controller/nav2 controller YAML max linear velocity param, if present' },
+        maxSpeedAngularRads: { type: 'number', description: 'rad/s — from a diff_drive_controller/nav2 controller YAML max angular velocity param, if present' },
         estimatedFields: {
           type: 'array',
           items: { type: 'string' },
           description: 'Names of the chassis fields above that you could NOT confidently resolve from the actual repo content and are therefore your engineering estimate, not a real extracted value.',
         },
       },
-      required: ['length', 'width', 'height', 'wheelbase', 'wheelRadius', 'totalMassKg', 'estimatedFields'],
+      required: ['length', 'width', 'height', 'wheelbase', 'wheelRadius', 'totalMassKg', 'maxSpeedLinearMs', 'maxSpeedAngularRads', 'estimatedFields'],
     },
     sensors: {
       type: 'array',
@@ -274,6 +292,17 @@ export async function executeReadFile(
   branch: string,
   onEvent: (log: string) => void
 ): Promise<{ result?: ReadFileToolResult; error?: string }> {
+  // A model can emit a tool call with missing/malformed arguments (seen in
+  // practice when JSON.parse fails on a truncated function-call payload and
+  // the caller falls back to {}). resolveFilePath() calls .match()/.split()
+  // on this unconditionally — without this guard, a non-string path throws
+  // and kills the entire audit instead of reporting a clean tool error the
+  // model can recover from, exactly like every other failure mode here does.
+  if (typeof requestedPath !== 'string' || !requestedPath.trim()) {
+    onEvent('Agent called read_file with a missing or malformed path argument.');
+    return { error: 'The "path" argument is required and must be a non-empty string. Check the file list for the exact path.' };
+  }
+
   const resolved = resolveFilePath(requestedPath, availablePaths);
 
   if (!resolved) {
@@ -307,8 +336,8 @@ export async function executeReadFile(
 /** Turns the raw args object from a submit_analysis tool call into the
  * shared AgenticAnalysisResult shape — identical across every provider
  * since they're all handed the exact same tool schema. */
-export function parseSubmitArgs(args: any, toolCallCount: number, onEvent: (log: string) => void): AgenticAnalysisResult {
-  onEvent(`Agent submitted final analysis after ${toolCallCount} tool call(s): ${args.sensors?.length ?? 0} sensor(s), chassis ${args.chassis?.estimatedFields?.length ? 'partially estimated' : 'fully resolved'}.`);
+export function parseSubmitArgs(args: any, toolCallCount: number, usage: AgentTokenUsage, onEvent: (log: string) => void): AgenticAnalysisResult {
+  onEvent(`Agent submitted final analysis after ${toolCallCount} tool call(s), ${usage.apiCallCount} API call(s), ~${usage.totalTokens.toLocaleString()} tokens: ${args.sensors?.length ?? 0} sensor(s), chassis ${args.chassis?.estimatedFields?.length ? 'partially estimated' : 'fully resolved'}.`);
   return {
     robotName: args.robotName,
     rosVersion: args.rosVersion,
@@ -337,6 +366,7 @@ export function parseSubmitArgs(args: any, toolCallCount: number, onEvent: (log:
     })),
     reasoningSummary: args.reasoningSummary || '',
     toolCallCount,
+    usage,
   };
 }
 

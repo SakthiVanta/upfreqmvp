@@ -64,9 +64,24 @@ export const MODEL_PRESETS: Record<ProviderId, { id: string; label: string }[]> 
   ],
 };
 
+/** Claude's `output_config.effort` — confirmed against Anthropic's own docs
+ * (no beta header needed, top-level-ish field, values low/medium/high/xhigh/max).
+ * Gemini's and OpenAI's equivalent reasoning-effort controls are NOT wired
+ * up: their exact current field paths for our request shapes (generateContent,
+ * and Chat Completions specifically — OpenAI's own docs now steer new
+ * integrations toward the Responses API for reasoning control) couldn't be
+ * confirmed from official docs without risking a guess that silently breaks
+ * every call to the default provider. Left as a known gap rather than shipped
+ * wrong. */
+export type AnthropicEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+export const ANTHROPIC_EFFORT_LEVELS: AnthropicEffort[] = ['low', 'medium', 'high', 'xhigh', 'max'];
+
 export interface AgentSettings {
   provider: ProviderId;
   model: string;
+  /** Anthropic-only; ignored by other providers. Unset = API default (high). */
+  effort?: AnthropicEffort;
 }
 
 export interface AgenticSensor {
@@ -88,6 +103,8 @@ export interface AgenticChassis {
   wheelbase: number;
   wheelRadius: number;
   totalMassKg: number;
+  maxSpeedLinearMs: number;
+  maxSpeedAngularRads: number;
   estimatedFields: string[];
 }
 
@@ -135,6 +152,34 @@ export interface AgenticRobotModel {
   metrics: AgenticRobotMetrics;
 }
 
+/** Summed across every API call in the loop, not just the final one — the
+ * whole point is knowing the real cost of a multi-iteration audit, not just
+ * the last request's numbers. `cachedInputTokens` is the portion of
+ * inputTokens that was served from a provider-side cache (Anthropic
+ * explicit, OpenAI/Gemini implicit) at a fraction of normal cost; it's a
+ * subset of inputTokens, not additional to it. */
+export interface AgentTokenUsage {
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  apiCallCount: number;
+}
+
+export function emptyTokenUsage(): AgentTokenUsage {
+  return { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, totalTokens: 0, apiCallCount: 0 };
+}
+
+export function addTokenUsage(a: AgentTokenUsage, b: Partial<AgentTokenUsage>): AgentTokenUsage {
+  return {
+    inputTokens: a.inputTokens + (b.inputTokens || 0),
+    cachedInputTokens: a.cachedInputTokens + (b.cachedInputTokens || 0),
+    outputTokens: a.outputTokens + (b.outputTokens || 0),
+    totalTokens: a.totalTokens + (b.totalTokens || 0),
+    apiCallCount: a.apiCallCount + 1,
+  };
+}
+
 export interface AgenticAnalysisResult {
   robotName: string;
   rosVersion: string;
@@ -145,6 +190,7 @@ export interface AgenticAnalysisResult {
   robotModels: AgenticRobotModel[];
   reasoningSummary: string;
   toolCallCount: number;
+  usage: AgentTokenUsage;
 }
 
 export interface AgentRunContext {
@@ -155,6 +201,8 @@ export interface AgentRunContext {
   branch: string;
   relevantPaths: string[];
   onEvent: (log: string) => void;
+  /** Anthropic only — see AnthropicEffort. Ignored by other providers. */
+  effort?: AnthropicEffort;
 }
 
 export type AgentProvider = (ctx: AgentRunContext) => Promise<AgenticAnalysisResult>;

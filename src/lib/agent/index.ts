@@ -28,8 +28,8 @@ export async function runAgenticAnalysis(
   if (!info) throw new Error(`Unknown provider: ${settings.provider}`);
 
   const run = PROVIDER_RUNNERS[settings.provider];
-  onEvent(`Handing analysis to ${info.label} (${settings.model})...`);
-  return run({ apiKey, model: settings.model, owner, repo, branch, relevantPaths, onEvent });
+  onEvent(`Handing analysis to ${info.label} (${settings.model}${settings.effort ? `, effort=${settings.effort}` : ''})...`);
+  return run({ apiKey, model: settings.model, owner, repo, branch, relevantPaths, onEvent, effort: settings.effort });
 }
 
 export * from './types';

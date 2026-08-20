@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { saveRobotProfile } from '@/lib/db/robots';
 import { getAgentSettings } from '@/lib/db/settings';
 import { resolveApiKey } from '@/lib/db/api-keys';
+import { recordAuditRun } from '@/lib/db/audit-runs';
 import { createDynamicRobotProfileFromUrl } from '@/lib/robot-profile';
 import { runAgenticAnalysis, AgenticAnalysisResult } from '@/lib/agent';
 
@@ -576,6 +577,7 @@ export async function POST(req: NextRequest) {
 
         const agentSettings = await getAgentSettings();
         const apiKey = await resolveApiKey(agentSettings.provider);
+        const agentStartedAt = Date.now();
 
         sendEvent({ stage: 'AGENT_START', log: `Handing ${relevantPaths.length} relevant file(s) to the ${agentSettings.provider} agent for real tool-use analysis...` });
 
@@ -592,6 +594,22 @@ export async function POST(req: NextRequest) {
             sendEvent({ stage: 'AGENT_FALLBACK', log: `${agentSettings.provider} agent unavailable (${agentError}) — falling back to heuristic regex parsing for sensors/chassis/plugins.` });
           }
         }
+
+        // Telemetry: written whether the agent succeeded, fell back, or
+        // never ran at all (no key configured) — this table is the only
+        // real record of what an audit actually costs, so failures need to
+        // show up in it too, not just successes.
+        await recordAuditRun({
+          projectId,
+          repoUrl,
+          provider: agentSettings.provider,
+          model: agentSettings.model,
+          usedAgenticAnalysis: !!agentResult,
+          toolCallCount: agentResult?.toolCallCount ?? null,
+          usage: agentResult?.usage ?? null,
+          durationMs: Date.now() - agentStartedAt,
+          errorMessage: agentResult ? null : agentError,
+        });
 
         let uniqueSensors: any[];
         let detectedGazeboPlugins: any[];

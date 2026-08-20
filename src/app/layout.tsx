@@ -3,6 +3,8 @@ import { Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth-context';
 import { AppLayout } from '@/components/layout/app-layout';
+import { ConfirmProvider } from '@/components/ui/confirm-dialog';
+import { ToastProvider } from '@/components/ui/toast';
 
 // Standard sans (Plus Jakarta Sans) for everything, including headings —
 // matches the client-approved reference design (rounded geometric grotesque,
@@ -37,9 +39,13 @@ export default function RootLayout({
     <html lang="en" className={`${plusJakartaSans.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-full flex flex-col bg-sand-950 text-sand-50 font-sans antialiased">
         <AuthProvider>
-          <AppLayout>
-            {children}
-          </AppLayout>
+          <ToastProvider>
+            <ConfirmProvider>
+              <AppLayout>
+                {children}
+              </AppLayout>
+            </ConfirmProvider>
+          </ToastProvider>
         </AuthProvider>
       </body>
     </html>
