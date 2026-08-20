@@ -194,7 +194,7 @@ export default function ProjectDetailPage() {
           {project.isAudited && project.auditedRobotProfile && (
             project.auditedRobotProfile.usedAgenticAnalysis ? (
               <span className="px-2.5 py-1 rounded-full bg-emerald-light text-emerald-text border border-emerald-border text-xs font-bold flex items-center gap-1.5">
-                <Bot className="h-3.5 w-3.5" /> Gemini Agent
+                <Bot className="h-3.5 w-3.5" /> AI Agent
               </span>
             ) : (
               <span className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-bold flex items-center gap-1.5">

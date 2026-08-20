@@ -63,6 +63,21 @@ const READ_FILE_PARAMETERS: JsonSchema = {
   required: ['path'],
 };
 
+// A single real "spec sheet" entry — one config value off a <gazebo>
+// <sensor> or <plugin> block (range, FOV, sample count, noise, update rate,
+// wheel geometry, ...). Shared by sensors.detailedParams and
+// simulationPlugins.parameters below so both ask the model for the same shape.
+const PARAM_ITEM_SCHEMA: JsonSchema = {
+  type: 'object',
+  properties: {
+    label: { type: 'string', description: 'e.g. "Range", "Horizontal FOV", "Update Rate", "Wheel Separation", "Noise (stddev)"' },
+    value: { type: 'string', description: 'The real value, as a string — e.g. "0.20 - 12.0", "720", "10.0", "gaussian"' },
+    unit: { type: 'string', description: 'e.g. "m", "Hz", "rad", "samples" — omit for unitless values' },
+    category: { type: 'string', description: 'Short grouping label, e.g. "range", "noise", "field of view", "update rate", "drive geometry"' },
+  },
+  required: ['label', 'value', 'category'],
+};
+
 const SUBMIT_ANALYSIS_PARAMETERS: JsonSchema = {
   type: 'object',
   properties: {
@@ -105,21 +120,34 @@ const SUBMIT_ANALYSIS_PARAMETERS: JsonSchema = {
           frameId: { type: 'string' },
           sourceFile: { type: 'string' },
           estimated: { type: 'boolean', description: 'true if this exact position/orientation could not be confidently resolved (e.g. blocked by unresolvable Xacro indirection) and is a placeholder, not a real value' },
+          detailedParams: {
+            type: 'array',
+            items: PARAM_ITEM_SCHEMA,
+            description: 'This sensor\'s real simulation spec sheet, read from its own <gazebo reference="LINK"><sensor> block if one exists (e.g. lidar: horizontal samples/resolution/min_angle/max_angle, range min/max, noise type/stddev; camera: horizontal_fov, image width/height, clip near/far). Omit entirely, or leave empty, if this sensor has no such block — never invent values.',
+          },
         },
         required: ['name', 'type', 'linkName', 'parentLink', 'positionX', 'positionY', 'positionZ', 'orientationR', 'orientationP', 'orientationY', 'frameId', 'estimated'],
       },
     },
-    gazeboPlugins: {
+    simulationPlugins: {
       type: 'array',
+      description: 'Simulation-side plugins from whichever simulator this repo actually targets — Gazebo/Ignition is the most common, but report Webots, O3DE, Isaac Sim, MuJoCo, or another simulator\'s plugins/sensor configs exactly as you find them if that\'s what the repo uses. Never assume Gazebo just because it\'s common.',
       items: {
         type: 'object',
         properties: {
           name: { type: 'string' },
           targetLink: { type: 'string' },
           sensorType: { type: 'string' },
-          pluginSystem: { type: 'string' },
+          pluginSystem: { type: 'string', description: 'The real plugin/system identifier as written in the repo, whatever simulator it\'s for — e.g. "ignition-gazebo-diff-drive-system", a Webots controller name, a MuJoCo actuator type.' },
           rosTopic: { type: 'string' },
           rosMessageType: { type: 'string' },
+          updateRateHz: { type: 'number', description: 'From an update-rate config value, if present' },
+          gzTopic: { type: 'string', description: 'The simulator-side topic, if different from the ROS-side rosTopic (see the bridge config, if one exists)' },
+          parameters: {
+            type: 'array',
+            items: PARAM_ITEM_SCHEMA,
+            description: 'Real config values off this plugin\'s own config block — e.g. a DiffDrive plugin\'s wheel_separation/wheel_radius, an OdometryPublisher\'s odom_publish_frequency, a JointStatePublisher\'s joint_name list. Omit entirely if the plugin has no notable parameters beyond identity.',
+          },
         },
         required: ['name', 'targetLink', 'sensorType', 'pluginSystem', 'rosTopic', 'rosMessageType'],
       },
@@ -191,7 +219,7 @@ const SUBMIT_ANALYSIS_PARAMETERS: JsonSchema = {
     },
     reasoningSummary: { type: 'string', description: 'Two or three sentences on what you found and any notable uncertainty.' },
   },
-  required: ['robotName', 'rosVersion', 'chassis', 'sensors', 'gazeboPlugins', 'topics', 'robotModels', 'reasoningSummary'],
+  required: ['robotName', 'rosVersion', 'chassis', 'sensors', 'simulationPlugins', 'topics', 'robotModels', 'reasoningSummary'],
 };
 
 export const TOOL_DEFS: ToolDef[] = [
@@ -228,11 +256,13 @@ export function toGeminiSchema(schema: JsonSchema): Record<string, unknown> {
 
 export const SYSTEM_INSTRUCTION = `You are a robotics codebase auditor. You are given the file tree of a ROS/ROS2 GitHub repository (filtered to URDF/Xacro, YAML, launch, and package.xml files) and a read_file tool to fetch any file's real content.
 
-Your job: determine the robot's real physical chassis dimensions, every physical sensor's real link name and joint origin (position + orientation), any Gazebo/Ignition simulation plugins, and the ROS topics they publish/subscribe.
+Your job: determine the robot's real physical chassis dimensions, every physical sensor's real link name and joint origin (position + orientation), any simulation-side plugins (Gazebo/Ignition is the most common target, but treat that as one option, not an assumption — the same repo family can just as validly target Webots, O3DE, Isaac Sim, MuJoCo, or another simulator, each with its own config format; report whichever one this specific repo actually uses), and the ROS topics they publish/subscribe.
 
 Critical rule: many robot description packages define geometry via Xacro macros with \${property} placeholders (e.g. <box size="\${chassis_length} \${chassis_width} \${chassis_height}"/>) whose real values live in a separate YAML file loaded via xacro.load_yaml(...) or a sibling *.yaml config. When you see this pattern, find and read that YAML file to resolve the real numbers — do not guess. Also watch for xacro:include chains — the file that defines a <joint> or <link> is often not the top-level URDF file.
 
 Be careful matching joint/link names: a joint whose name merely contains a keyword (e.g. "lidar_base_joint" connecting a mounting plate) is NOT the same as the actual sensor's own joint (e.g. "rplidar_laser_joint") — trace to the real sensor-bearing link, not an intermediate mounting link.
+
+Sensor and plugin specifications: beyond position/orientation, each sensor's real simulation spec sheet lives in whatever config block this repo's target simulator uses for it. If it's Gazebo/Ignition (the common case, and worth checking first), that's a <gazebo reference="LINK_NAME"><sensor type="..."> block — for a lidar that's <horizontal><samples>/<resolution>/<min_angle>/<max_angle></horizontal>, <range><min>/<max>/<resolution></range>, and <noise><type>/<mean>/<stddev></noise>; for a camera it's <horizontal_fov>, <image><width>/<height></image>, <clip><near>/<far></clip>, and any <distortion> coefficients. If instead the repo targets Webots, O3DE, Isaac Sim, MuJoCo, or another simulator, look for that format's own equivalent sensor/device config (a Webots .proto/.wbt device field, a MuJoCo MJCF <sensor> tag, an Isaac Sim USD sensor prim, etc.) and report the same kind of real values using that format's own field names — don't force Gazebo's field names onto a different simulator's data. Report every real value you find as a detailedParams entry on that sensor — never invent one that isn't there. These simulator config blocks are frequently NOT in the same file as the chassis/link geometry — many repos split a "description" package (URDF/links/joints, simulator-agnostic) from a separate per-simulator package (e.g. "_gz", "_webots", "_isaac", "_mujoco" suffixed) that only adds simulator-specific tags on top of the same link names via a second top-level file that includes the first. If the file list contains a second top-level urdf.xacro (or equivalent) beyond the main description one, read it — it's very likely where the real sensor and plugin configs are. The same applies to non-sensor plugins (a DiffDrive's wheel_separation/wheel_radius, an OdometryPublisher's odom_publish_frequency, a JointStatePublisher's joint_name list) — report their real config values as parameters entries on that simulationPlugins item.
 
 Accuracy matters far more than speed here — a wrong number that looks confident is worse than admitting you couldn't find it. Before giving up on a field, make sure you've actually opened every YAML file a relevant xacro:property/xacro.load_yaml call references, not just the top-level URDF. If you truly cannot resolve a value after that real effort (no literal number anywhere in the reachable files), fill in a reasonable engineering estimate for a small-to-medium mobile ground robot and explicitly list that field as estimated — the caller discards estimated numbers entirely and shows "not determined" instead, so an honest estimated=true costs nothing, but a wrong confident value is a real bug users will see.
 
@@ -352,8 +382,9 @@ export function parseSubmitArgs(args: any, toolCallCount: number, usage: AgentTo
       frameId: s.frameId,
       sourceFile: s.sourceFile,
       estimated: !!s.estimated,
+      detailedParams: s.detailedParams || [],
     })),
-    gazeboPlugins: args.gazeboPlugins || [],
+    simulationPlugins: args.simulationPlugins || [],
     topics: args.topics || [],
     robotModels: (args.robotModels || []).map((m: any) => ({
       modelName: m.modelName,

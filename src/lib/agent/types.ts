@@ -84,6 +84,18 @@ export interface AgentSettings {
   effort?: AnthropicEffort;
 }
 
+/** A single "spec sheet" entry — a real Gazebo/Ignition <sensor> or <plugin>
+ * config value (range, FOV, sample count, noise, update rate, wheel
+ * geometry, ...), not the sensor's own identity/position fields above.
+ * Matches SensorRecord.detailedParams in robot-profile.ts exactly, so this
+ * passes straight through without remapping. */
+export interface AgenticParam {
+  label: string;
+  value: string;
+  unit?: string;
+  category: string;
+}
+
 export interface AgenticSensor {
   name: string;
   type: string;
@@ -94,6 +106,10 @@ export interface AgenticSensor {
   frameId: string;
   sourceFile?: string;
   estimated: boolean;
+  /** Real config values from this sensor's own <gazebo reference="LINK">
+   * <sensor> block — range, FOV, sample count, noise, update rate — when
+   * one exists in the repo. Empty, not guessed, when no such block exists. */
+  detailedParams?: AgenticParam[];
 }
 
 export interface AgenticChassis {
@@ -108,13 +124,27 @@ export interface AgenticChassis {
   estimatedFields: string[];
 }
 
-export interface AgenticGazeboPlugin {
+/** A simulation-side plugin — Gazebo/Ignition is the common case (and the
+ * only one the regex fallback parser can detect), but this is deliberately
+ * not Gazebo-specific: Andino alone has real companion repos for Webots,
+ * O3DE, Isaac Sim, MuJoCo, and RMF, each with their own plugin/config
+ * format. `pluginSystem`/`sensorType` are free text precisely so the agent
+ * can report whichever simulator's plugin identifier it actually finds,
+ * not just Gazebo's. */
+export interface AgenticSimulationPlugin {
   name: string;
   targetLink: string;
   sensorType: string;
   pluginSystem: string;
   rosTopic: string;
   rosMessageType: string;
+  updateRateHz?: number;
+  gzTopic?: string;
+  /** Real config values straight off the plugin's own config block —
+   * wheel_separation, odom_publish_frequency, joint names, etc. — for
+   * plugins that aren't themselves a physical sensor (DiffDrive,
+   * OdometryPublisher, ...). */
+  parameters?: AgenticParam[];
 }
 
 export interface AgenticTopic {
@@ -185,7 +215,7 @@ export interface AgenticAnalysisResult {
   rosVersion: string;
   chassis: AgenticChassis;
   sensors: AgenticSensor[];
-  gazeboPlugins: AgenticGazeboPlugin[];
+  simulationPlugins: AgenticSimulationPlugin[];
   topics: AgenticTopic[];
   robotModels: AgenticRobotModel[];
   reasoningSummary: string;
