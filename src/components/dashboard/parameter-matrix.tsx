@@ -88,7 +88,7 @@ export function ParameterMatrix({
               onClick={() => setActiveTab(id)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-semibold transition-all whitespace-nowrap cursor-pointer ${
                 activeTab === id
-                  ? 'bg-emerald-primary text-sand-950 shadow-xs'
+                  ? 'bg-emerald-primary text-sand-950'
                   : 'text-sand-400 hover:text-sand-100 hover:bg-sand-800'
               }`}
             >

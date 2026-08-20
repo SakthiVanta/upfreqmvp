@@ -134,6 +134,10 @@ export interface RobotModelDetail {
   actuatorsSensors: string[];
   simulationAssets: RobotModelSimAsset[];
   metrics: RobotModelMetrics;
+  /** Free-form metrics the fixed `metrics` fields don't cover (e.g. payload
+   * capacity, battery runtime) — user-added only, the agent never populates
+   * this. Not every robot fits the fixed wheeled-base metric set. */
+  customMetrics?: { label: string; value: string }[];
 }
 
 export interface RobotProfile {

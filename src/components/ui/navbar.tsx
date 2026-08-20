@@ -27,7 +27,7 @@ export function Navbar() {
           {/* Brand Logo & Title */}
           <div className="flex items-center gap-6">
             <Link href="/" className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-lg bg-emerald-primary text-sand-950 flex items-center justify-center font-mono font-bold text-sm shadow-xs">
+              <div className="h-8 w-8 rounded-lg bg-emerald-primary text-sand-950 flex items-center justify-center font-mono font-bold text-sm">
                 UF
               </div>
               <div className="flex flex-col">

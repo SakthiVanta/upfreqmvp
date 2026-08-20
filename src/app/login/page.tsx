@@ -36,7 +36,7 @@ export default function LoginPage() {
       <div className="minimal-card p-8 space-y-6">
         <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center gap-2">
-            <div className="h-10 w-10 rounded-xl bg-emerald-primary text-sand-950 flex items-center justify-center font-bold text-base shadow-xs">
+            <div className="h-10 w-10 rounded-xl bg-emerald-primary text-sand-950 flex items-center justify-center font-bold text-base">
               UF
             </div>
           </Link>

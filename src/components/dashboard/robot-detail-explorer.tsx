@@ -102,7 +102,7 @@ export function RobotDetailExplorer({
             onClick={() => setActiveTab(id)}
             className={`px-3.5 py-1.5 rounded-md font-bold transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
               activeTab === id
-                ? 'bg-emerald-primary text-sand-950 shadow-xs'
+                ? 'bg-emerald-primary text-sand-950'
                 : 'text-sand-400 hover:text-sand-100 hover:bg-sand-800'
             }`}
           >
