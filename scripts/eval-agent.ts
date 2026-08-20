@@ -20,9 +20,14 @@ const BASE_URL = process.argv[2] || process.env.EVAL_BASE_URL || 'http://localho
 
 // Andino is this app's own reference repo (see the Xacro/YAML-indirection
 // comments throughout src/lib/agent/tools.ts) — real, public, small enough
-// to eval quickly.
+// to eval quickly. andino_gz is its Gazebo simulation overlay, and the one
+// that actually carries real <gazebo><sensor> spec blocks (lidar range/
+// samples/noise, camera FOV/resolution/clip) — the ground truth this
+// harness's sensor/simulationPlugins detailedParams fields were built
+// against.
 const EVAL_REPOS = [
   { name: 'Andino', url: 'https://github.com/Ekumen-OS/andino' },
+  { name: 'Andino (Gazebo overlay)', url: 'https://github.com/Ekumen-OS/andino_gz' },
 ];
 
 interface EvalResult {
@@ -32,6 +37,8 @@ interface EvalResult {
   robotName: string | null;
   rosVersion: string | null;
   sensorCount: number;
+  sensorsWithSpecs: number;
+  simulationPluginCount: number;
   chassisResolved: boolean | null;
   robotModelCount: number;
   usedAgenticAnalysis: boolean;
@@ -49,7 +56,7 @@ async function evalRepo(repoUrl: string): Promise<EvalResult> {
   if (!res.ok || !res.body) {
     return {
       repo: repoUrl, ok: false, error: `HTTP ${res.status}`, robotName: null, rosVersion: null,
-      sensorCount: 0, chassisResolved: null, robotModelCount: 0, usedAgenticAnalysis: false,
+      sensorCount: 0, sensorsWithSpecs: 0, simulationPluginCount: 0, chassisResolved: null, robotModelCount: 0, usedAgenticAnalysis: false,
       durationMs: Date.now() - startedAt,
     };
   }
@@ -83,7 +90,7 @@ async function evalRepo(repoUrl: string): Promise<EvalResult> {
   if (!result) {
     return {
       repo: repoUrl, ok: false, error: errorMessage || 'No result received', robotName: null, rosVersion: null,
-      sensorCount: 0, chassisResolved: null, robotModelCount: 0, usedAgenticAnalysis: false,
+      sensorCount: 0, sensorsWithSpecs: 0, simulationPluginCount: 0, chassisResolved: null, robotModelCount: 0, usedAgenticAnalysis: false,
       durationMs: Date.now() - startedAt,
     };
   }
@@ -95,6 +102,8 @@ async function evalRepo(repoUrl: string): Promise<EvalResult> {
     robotName: result.name,
     rosVersion: result.rosVersion,
     sensorCount: result.sensors?.length ?? 0,
+    sensorsWithSpecs: (result.sensors || []).filter((s: any) => s.detailedParams?.length > 0).length,
+    simulationPluginCount: result.simulationPlugins?.length ?? 0,
     chassisResolved: result.chassisEstimatedFields ? result.chassisEstimatedFields.length === 0 : null,
     robotModelCount: result.robotModels?.length ?? 0,
     usedAgenticAnalysis: !!result.usedAgenticAnalysis,
@@ -122,7 +131,7 @@ async function main() {
     console.log(
       `${r.repo}: ${r.usedAgenticAnalysis ? 'agent' : 'FALLBACK (regex)'} | ` +
       `robot="${r.robotName}" ros="${r.rosVersion}" | ` +
-      `${r.sensorCount} sensor(s), ${r.robotModelCount} variant(s), ` +
+      `${r.sensorCount} sensor(s) (${r.sensorsWithSpecs} with spec params), ${r.simulationPluginCount} sim plugin(s), ${r.robotModelCount} variant(s), ` +
       `chassis ${r.chassisResolved === null ? 'n/a' : r.chassisResolved ? 'fully resolved' : 'partially estimated'} | ` +
       `${(r.durationMs / 1000).toFixed(1)}s`
     );
