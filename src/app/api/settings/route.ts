@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { getAgentSettings, updateAgentSettings } from '@/lib/db/settings';
 import { listProviderModels } from '@/lib/db/provider-models';
 import { getProviderKeyStatuses } from '@/lib/db/api-keys';
-import { PROVIDERS, ProviderId } from '@/lib/agent/types';
+import { PROVIDERS, ProviderId, ANTHROPIC_EFFORT_LEVELS, AnthropicEffort } from '@/lib/agent/types';
 
 export const runtime = 'nodejs';
 
@@ -32,8 +32,16 @@ export async function PUT(req: NextRequest) {
       return Response.json({ error: 'model is required' }, { status: 400 });
     }
 
+    let effort: AnthropicEffort | undefined;
+    if (body.effort !== undefined && body.effort !== null && body.effort !== '') {
+      if (!ANTHROPIC_EFFORT_LEVELS.includes(body.effort)) {
+        return Response.json({ error: `Unknown effort level: ${body.effort}` }, { status: 400 });
+      }
+      effort = body.effort;
+    }
+
     const [settings, models, configured] = await Promise.all([
-      updateAgentSettings({ provider, model }),
+      updateAgentSettings({ provider, model, effort }),
       listProviderModels(),
       getProviderKeyStatuses(),
     ]);

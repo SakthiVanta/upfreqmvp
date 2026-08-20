@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Check, Loader2, AlertTriangle, Bot, Eye, EyeOff, Trash2, KeyRound } from 'lucide-react';
-import { PROVIDERS, DEFAULT_MODEL_BY_PROVIDER, ProviderId, AgentSettings } from '@/lib/agent/types';
+import { Check, Loader2, AlertTriangle, Bot, Eye, EyeOff, Trash2, KeyRound, Gauge, Activity } from 'lucide-react';
+import { PROVIDERS, DEFAULT_MODEL_BY_PROVIDER, ANTHROPIC_EFFORT_LEVELS, ProviderId, AgentSettings } from '@/lib/agent/types';
+import { useConfirm } from '@/components/ui/confirm-dialog';
 
 const CUSTOM_MODEL_VALUE = '__custom__';
 
@@ -18,7 +19,25 @@ interface ProviderKeyStatus {
   preview: string | null;
 }
 
+interface AuditRunRecord {
+  id: string;
+  repoUrl: string;
+  provider: string;
+  model: string;
+  usedAgenticAnalysis: boolean;
+  toolCallCount: number | null;
+  apiCallCount: number | null;
+  inputTokens: number | null;
+  cachedInputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  durationMs: number;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
 export default function SettingsPage() {
+  const confirm = useConfirm();
   const [settings, setSettings] = useState<AgentSettings | null>(null);
   const [configured, setConfigured] = useState<Record<ProviderId, ProviderKeyStatus> | null>(null);
   // Model dropdown options come from the DB-seeded `provider_models` table
@@ -40,6 +59,8 @@ export default function SettingsPage() {
   const [keyError, setKeyError] = useState<string | null>(null);
   const [keyJustSaved, setKeyJustSaved] = useState(false);
 
+  const [auditRuns, setAuditRuns] = useState<AuditRunRecord[] | null>(null);
+
   useEffect(() => {
     fetch('/api/settings')
       .then(res => res.json())
@@ -55,6 +76,11 @@ export default function SettingsPage() {
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setIsLoading(false));
+
+    fetch('/api/telemetry')
+      .then(res => res.json())
+      .then(data => setAuditRuns(data.runs || []))
+      .catch(() => setAuditRuns([]));
   }, []);
 
   const selectProvider = (provider: ProviderId) => {
@@ -135,7 +161,13 @@ export default function SettingsPage() {
 
   const handleRemoveKey = async () => {
     if (!settings || isRemovingKey) return;
-    if (!confirm(`Remove your saved ${PROVIDERS.find(p => p.id === settings.provider)?.label} key? This falls back to the server's env var, if one is set.`)) return;
+    const ok = await confirm({
+      title: 'Remove API Key',
+      message: `Remove your saved ${PROVIDERS.find(p => p.id === settings.provider)?.label} key? This falls back to the server's env var, if one is set.`,
+      confirmLabel: 'Remove Key',
+      danger: true,
+    });
+    if (!ok) return;
 
     setIsRemovingKey(true);
     setKeyError(null);
@@ -309,6 +341,27 @@ export default function SettingsPage() {
           )}
         </div>
 
+        {settings.provider === 'anthropic' && (
+          <div className="space-y-2.5 pt-1 border-t border-sand-800">
+            <label className="flex items-center gap-1.5 text-xs font-bold text-sand-300 uppercase tracking-wider pt-4">
+              <Gauge className="h-3.5 w-3.5" /> Reasoning Effort
+            </label>
+            <select
+              value={settings.effort || ''}
+              onChange={(e) => setSettings({ ...settings, effort: (e.target.value || undefined) as AgentSettings['effort'] })}
+              className="w-full px-3.5 py-2.5 border border-sand-700 bg-sand-950 text-sand-50 text-xs focus:outline-none focus:border-emerald-primary"
+            >
+              <option value="">Default (high)</option>
+              {ANTHROPIC_EFFORT_LEVELS.map((level) => (
+                <option key={level} value={level}>{level}</option>
+              ))}
+            </select>
+            <p className="text-[11px] text-sand-500">
+              Higher effort makes more tool calls and reasons more before submitting — usually more accurate on complex repos, at higher token cost. Claude-only; other providers ignore this.
+            </p>
+          </div>
+        )}
+
         {error && (
           <div className="bg-rose-50 border border-rose-200 p-3 text-rose-700 text-xs">{error}</div>
         )}
@@ -333,6 +386,62 @@ export default function SettingsPage() {
       <div className="flex items-start gap-2.5 text-xs text-sand-500">
         <Bot className="h-4 w-4 shrink-0 mt-0.5 text-sand-600" />
         <p>Keys you save here are encrypted before they&apos;re stored and never shown again in full — only a masked preview. Server env vars ({PROVIDERS.map(p => p.envKey).join(', ')}) are just the fallback when no key is saved for a provider.</p>
+      </div>
+
+      <div className="space-y-2.5">
+        <label className="flex items-center gap-1.5 text-xs font-bold text-sand-300 uppercase tracking-wider">
+          <Activity className="h-3.5 w-3.5" /> Recent Audits
+        </label>
+        {auditRuns === null ? (
+          <div className="minimal-card p-6 text-center">
+            <Loader2 className="h-4 w-4 mx-auto text-sand-500 animate-spin" />
+          </div>
+        ) : auditRuns.length === 0 ? (
+          <div className="minimal-card p-6 text-center text-xs text-sand-500">
+            No audits recorded yet — token usage and timing for each run will show up here.
+          </div>
+        ) : (
+          <div className="minimal-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-sand-925 border-b border-sand-700 text-sand-400 font-semibold uppercase tracking-wide">
+                    <th className="py-2.5 px-3">Repo</th>
+                    <th className="py-2.5 px-3">Provider / Model</th>
+                    <th className="py-2.5 px-3 text-right">Tool Calls</th>
+                    <th className="py-2.5 px-3 text-right">Tokens (cached)</th>
+                    <th className="py-2.5 px-3 text-right">Duration</th>
+                    <th className="py-2.5 px-3">Result</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-sand-800">
+                  {auditRuns.map((run) => (
+                    <tr key={run.id}>
+                      <td className="py-2.5 px-3 max-w-40 truncate font-mono text-sand-300" title={run.repoUrl}>
+                        {run.repoUrl.replace('https://github.com/', '')}
+                      </td>
+                      <td className="py-2.5 px-3 text-sand-300">{run.provider} / {run.model}</td>
+                      <td className="py-2.5 px-3 text-right text-sand-300">{run.toolCallCount ?? '—'}</td>
+                      <td className="py-2.5 px-3 text-right text-sand-300">
+                        {run.totalTokens != null ? (
+                          <>{run.totalTokens.toLocaleString()}{run.cachedInputTokens ? <span className="text-sand-500"> ({run.cachedInputTokens.toLocaleString()})</span> : null}</>
+                        ) : '—'}
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-sand-300">{(run.durationMs / 1000).toFixed(1)}s</td>
+                      <td className="py-2.5 px-3">
+                        {run.usedAgenticAnalysis ? (
+                          <span className="text-emerald-primary font-bold">Agent</span>
+                        ) : (
+                          <span className="text-amber-700 font-bold" title={run.errorMessage || undefined}>Fallback</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
     </div>

@@ -1,8 +1,9 @@
-import { AgentProvider } from '../types';
+import { AgentProvider, AgentTokenUsage, emptyTokenUsage, addTokenUsage } from '../types';
 import {
   TOOL_DEFS, SUBMIT_TOOL_NAME, READ_FILE_TOOL_NAME, SYSTEM_INSTRUCTION,
   buildUserPrompt, executeReadFile, parseSubmitArgs, toGeminiSchema,
   MAX_TOOL_ITERATIONS, RATE_LIMIT_RETRY_DELAYS_MS, sleep,
+  KEEP_RECENT_FILE_READS, compactedFilePlaceholder,
 } from '../tools';
 
 interface GeminiPart {
@@ -24,6 +25,33 @@ const GEMINI_TOOLS = [{
   })),
 }];
 
+// Note on caching: Gemini 2.5/3.x models apply implicit context caching
+// automatically (no request changes needed) — usageMetadata.
+// cachedContentTokenCount below reports whatever the API decided to cache,
+// which is why we still surface it in telemetry even though nothing here
+// requests it explicitly.
+
+// Replaces the full text of read_file results older than the most recent
+// KEEP_RECENT_FILE_READS with a short placeholder, in place. Without this,
+// every subsequent call re-sends every file ever read in full — the
+// dominant cost driver in a multi-iteration tool loop (see tools.ts).
+function compactOldFileReads(contents: GeminiContent[]): void {
+  let fullReadsSeen = 0;
+  for (let i = contents.length - 1; i >= 0; i--) {
+    for (const part of contents[i].parts) {
+      const resp = part.functionResponse;
+      if (resp?.name === READ_FILE_TOOL_NAME && typeof resp.response?.content === 'string' && !resp.response.compacted) {
+        fullReadsSeen++;
+        if (fullReadsSeen > KEEP_RECENT_FILE_READS) {
+          const path = resp.response.path;
+          const originalLength = resp.response.content.length;
+          resp.response = { path, content: compactedFilePlaceholder(path, originalLength), compacted: true };
+        }
+      }
+    }
+  }
+}
+
 // The agent loop can fire up to MAX_TOOL_ITERATIONS sequential calls for a
 // single audit — comfortably enough to blow through a free-tier per-minute
 // quota on any real repo. A 429 here is almost always transient, so retry
@@ -34,7 +62,7 @@ async function callGemini(
   contents: GeminiContent[],
   forceSubmit: boolean,
   onEvent: (log: string) => void
-): Promise<GeminiContent> {
+): Promise<{ content: GeminiContent; usage: Partial<AgentTokenUsage> }> {
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -59,7 +87,16 @@ async function callGemini(
       if (!candidate) {
         throw new Error(`Gemini API returned no candidates: ${JSON.stringify(data).slice(0, 300)}`);
       }
-      return candidate.content as GeminiContent;
+      const um = data.usageMetadata || {};
+      return {
+        content: candidate.content as GeminiContent,
+        usage: {
+          inputTokens: um.promptTokenCount || 0,
+          cachedInputTokens: um.cachedContentTokenCount || 0,
+          outputTokens: um.candidatesTokenCount || 0,
+          totalTokens: um.totalTokenCount || 0,
+        },
+      };
     }
 
     const body = await res.text().catch(() => '');
@@ -83,10 +120,13 @@ export const runGeminiAgent: AgentProvider = async (ctx) => {
   ];
 
   let toolCallCount = 0;
+  let usage = emptyTokenUsage();
 
   for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
     const forceSubmit = iteration === MAX_TOOL_ITERATIONS - 1;
-    const modelTurn = await callGemini(apiKey, model, contents, forceSubmit, onEvent);
+    compactOldFileReads(contents);
+    const { content: modelTurn, usage: callUsage } = await callGemini(apiKey, model, contents, forceSubmit, onEvent);
+    usage = addTokenUsage(usage, callUsage);
     contents.push(modelTurn);
 
     const functionCalls = modelTurn.parts.filter(p => p.functionCall).map(p => p.functionCall!);
@@ -100,7 +140,7 @@ export const runGeminiAgent: AgentProvider = async (ctx) => {
       toolCallCount++;
 
       if (call.name === SUBMIT_TOOL_NAME) {
-        return parseSubmitArgs(call.args, toolCallCount, onEvent);
+        return parseSubmitArgs(call.args, toolCallCount, usage, onEvent);
       }
 
       if (call.name === READ_FILE_TOOL_NAME) {

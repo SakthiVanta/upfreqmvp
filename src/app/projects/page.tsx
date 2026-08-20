@@ -7,6 +7,8 @@ import {
   ChevronLeft, ChevronRight, Check, Search, Loader2
 } from 'lucide-react';
 import { fetchProjects, createProject, deleteProject, UserProject, ProjectRepo } from '@/lib/user-projects';
+import { useConfirm } from '@/components/ui/confirm-dialog';
+import { useToast } from '@/components/ui/toast';
 
 const PAGE_SIZE = 8;
 
@@ -14,6 +16,8 @@ const CREATE_STEPS = ['Details', 'Repositories', 'Review'] as const;
 
 export default function ProjectsPage() {
   const router = useRouter();
+  const confirm = useConfirm();
+  const toast = useToast();
 
   const [projects, setProjects] = useState<UserProject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,21 +75,26 @@ export default function ProjectsPage() {
       resetCreateFlow();
       router.push(`/projects/${newProj.id}`);
     } catch (e: any) {
-      alert(e.message || 'Failed to create project.');
+      toast.error(e.message || 'Failed to create project.');
     } finally {
       setIsCreating(false);
     }
   };
 
   const handleDeleteProject = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this project?')) return;
+    const ok = await confirm({
+      message: 'Are you sure you want to delete this project? This cannot be undone.',
+      confirmLabel: 'Delete Project',
+      danger: true,
+    });
+    if (!ok) return;
     const prevProjects = projects;
     setProjects(prev => prev.filter(p => p.id !== id));
     try {
       await deleteProject(id);
     } catch (e: any) {
       setProjects(prevProjects);
-      alert(e.message || 'Failed to delete project.');
+      toast.error(e.message || 'Failed to delete project.');
     }
   };
 
