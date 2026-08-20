@@ -261,6 +261,14 @@ html {
   background-color: var(--brand-emerald);
 }
 
+/* `accent-emerald-primary` isn't a real Tailwind utility (no matching
+ * `--color-emerald-primary` theme token) — without this it silently does
+ * nothing and checkboxes/radios fall back to the browser's default blue.
+ * Same alias pattern as .text-emerald-primary / .bg-emerald-primary above. */
+.accent-emerald-primary {
+  accent-color: var(--brand-emerald);
+}
+
 .btn-emerald-sand {
   display: inline-flex;
   align-items: center;
