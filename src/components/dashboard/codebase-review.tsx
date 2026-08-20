@@ -528,7 +528,7 @@ function RobotDetailModal({
         className="minimal-card w-[85vw] h-[85vh] max-w-4xl flex flex-col animate-in fade-in slide-in-from-top-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between gap-3 border-b border-sand-800 p-5 shrink-0">
+        <div className="flex items-center justify-between gap-3 border-b border-sand-800 p-4 sm:p-5 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <div className="h-10 w-10 rounded-lg bg-emerald-light border border-emerald-border flex items-center justify-center shrink-0">
               <Bot className="h-5 w-5 text-emerald-primary" />
@@ -626,50 +626,54 @@ function RobotDetailModal({
                     with no dependency on removing anything first. */}
                 <div className="mt-3 space-y-2">
                   {draftCustomMetrics.map((m, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
+                    <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-2">
                       <input
                         type="text"
                         value={m.label}
                         onChange={(e) => setDraftCustomMetrics(prev => prev.map((x, i) => i === idx ? { ...x, label: e.target.value } : x))}
                         placeholder="Metric name"
-                        className="w-40 shrink-0 px-3 py-2 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 text-sm focus:outline-none focus:border-emerald-primary"
+                        className="w-full sm:w-40 sm:shrink-0 px-3 py-2 border border-sand-700 bg-sand-950 text-sand-50 text-sm focus:outline-none focus:border-emerald-primary"
                       />
-                      <input
-                        type="text"
-                        value={m.value}
-                        onChange={(e) => setDraftCustomMetrics(prev => prev.map((x, i) => i === idx ? { ...x, value: e.target.value } : x))}
-                        placeholder="Value (e.g. 5 kg)"
-                        className="flex-1 px-3 py-2 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 text-sm focus:outline-none focus:border-emerald-primary min-w-0"
-                      />
-                      <button onClick={() => setDraftCustomMetrics(prev => prev.filter((_, i) => i !== idx))} className="p-1.5 text-sand-500 hover:text-rose-400 shrink-0 cursor-pointer">
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={m.value}
+                          onChange={(e) => setDraftCustomMetrics(prev => prev.map((x, i) => i === idx ? { ...x, value: e.target.value } : x))}
+                          placeholder="Value (e.g. 5 kg)"
+                          className="flex-1 px-3 py-2 border border-sand-700 bg-sand-950 text-sand-50 text-sm focus:outline-none focus:border-emerald-primary min-w-0"
+                        />
+                        <button onClick={() => setDraftCustomMetrics(prev => prev.filter((_, i) => i !== idx))} className="p-1.5 text-sand-500 hover:text-rose-400 shrink-0 cursor-pointer">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                     <input
                       type="text"
                       value={newMetricLabel}
                       onChange={(e) => setNewMetricLabel(e.target.value)}
                       placeholder="Metric name"
-                      className="w-40 shrink-0 px-3 py-2 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 text-sm focus:outline-none focus:border-emerald-primary"
+                      className="w-full sm:w-40 sm:shrink-0 px-3 py-2 border border-sand-700 bg-sand-950 text-sand-50 text-sm focus:outline-none focus:border-emerald-primary"
                     />
-                    <input
-                      type="text"
-                      value={newMetricValue}
-                      onChange={(e) => setNewMetricValue(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddCustomMetric(); }}
-                      placeholder="Value (e.g. 5 kg)"
-                      className="flex-1 px-3 py-2 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 text-sm focus:outline-none focus:border-emerald-primary min-w-0"
-                    />
-                    <button
-                      onClick={handleAddCustomMetric}
-                      disabled={!newMetricLabel.trim() || !newMetricValue.trim()}
-                      className="p-1.5 text-sand-400 hover:text-sand-50 hover:bg-sand-800 rounded-lg border border-sand-700 shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                      title={!newMetricLabel.trim() || !newMetricValue.trim() ? 'Fill in both a name and a value first' : 'Add metric'}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={newMetricValue}
+                        onChange={(e) => setNewMetricValue(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddCustomMetric(); }}
+                        placeholder="Value (e.g. 5 kg)"
+                        className="flex-1 px-3 py-2 border border-sand-700 bg-sand-950 text-sand-50 text-sm focus:outline-none focus:border-emerald-primary min-w-0"
+                      />
+                      <button
+                        onClick={handleAddCustomMetric}
+                        disabled={!newMetricLabel.trim() || !newMetricValue.trim()}
+                        className="p-1.5 text-sand-400 hover:text-sand-50 hover:bg-sand-800 border border-sand-700 shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={!newMetricLabel.trim() || !newMetricValue.trim() ? 'Fill in both a name and a value first' : 'Add metric'}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -721,50 +725,54 @@ function RobotDetailModal({
                 </h4>
                 <div className="space-y-2">
                   {draftAssets.map((a, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
+                    <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-2">
                       <input
                         type="text"
                         value={a.label}
                         onChange={(e) => setDraftAssets(prev => prev.map((x, i) => i === idx ? { ...x, label: e.target.value } : x))}
                         placeholder="Label"
-                        className="w-32 shrink-0 px-3 py-2 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 text-sm focus:outline-none focus:border-emerald-primary"
+                        className="w-full sm:w-32 sm:shrink-0 px-3 py-2 border border-sand-700 bg-sand-950 text-sand-50 text-sm focus:outline-none focus:border-emerald-primary"
                       />
-                      <input
-                        type="text"
-                        value={a.path}
-                        onChange={(e) => setDraftAssets(prev => prev.map((x, i) => i === idx ? { ...x, path: e.target.value } : x))}
-                        placeholder="Path"
-                        className="flex-1 px-3 py-2 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 text-sm font-mono focus:outline-none focus:border-emerald-primary min-w-0"
-                      />
-                      <button onClick={() => setDraftAssets(prev => prev.filter((_, i) => i !== idx))} className="p-1.5 text-sand-500 hover:text-rose-400 shrink-0 cursor-pointer">
-                        <X className="h-3.5 w-3.5" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={a.path}
+                          onChange={(e) => setDraftAssets(prev => prev.map((x, i) => i === idx ? { ...x, path: e.target.value } : x))}
+                          placeholder="Path"
+                          className="flex-1 px-3 py-2 border border-sand-700 bg-sand-950 text-sand-50 text-sm font-mono focus:outline-none focus:border-emerald-primary min-w-0"
+                        />
+                        <button onClick={() => setDraftAssets(prev => prev.filter((_, i) => i !== idx))} className="p-1.5 text-sand-500 hover:text-rose-400 shrink-0 cursor-pointer">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                     <input
                       type="text"
                       value={newAssetLabel}
                       onChange={(e) => setNewAssetLabel(e.target.value)}
                       placeholder="Label"
-                      className="w-32 shrink-0 px-3 py-2 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 text-sm focus:outline-none focus:border-emerald-primary"
+                      className="w-full sm:w-32 sm:shrink-0 px-3 py-2 border border-sand-700 bg-sand-950 text-sand-50 text-sm focus:outline-none focus:border-emerald-primary"
                     />
-                    <input
-                      type="text"
-                      value={newAssetPath}
-                      onChange={(e) => setNewAssetPath(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddAsset(); }}
-                      placeholder="Path"
-                      className="flex-1 px-3 py-2 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 text-sm font-mono focus:outline-none focus:border-emerald-primary min-w-0"
-                    />
-                    <button
-                      onClick={handleAddAsset}
-                      disabled={!newAssetLabel.trim() || !newAssetPath.trim()}
-                      className="p-1.5 text-sand-400 hover:text-sand-50 hover:bg-sand-800 rounded-lg border border-sand-700 shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                      title={!newAssetLabel.trim() || !newAssetPath.trim() ? 'Fill in both a label and a path first' : 'Add'}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={newAssetPath}
+                        onChange={(e) => setNewAssetPath(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddAsset(); }}
+                        placeholder="Path"
+                        className="flex-1 px-3 py-2 border border-sand-700 bg-sand-950 text-sand-50 text-sm font-mono focus:outline-none focus:border-emerald-primary min-w-0"
+                      />
+                      <button
+                        onClick={handleAddAsset}
+                        disabled={!newAssetLabel.trim() || !newAssetPath.trim()}
+                        className="p-1.5 text-sand-400 hover:text-sand-50 hover:bg-sand-800 border border-sand-700 shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={!newAssetLabel.trim() || !newAssetPath.trim() ? 'Fill in both a label and a path first' : 'Add'}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

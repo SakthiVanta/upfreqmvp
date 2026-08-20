@@ -12,7 +12,7 @@ export interface SavedRobotEntry {
   profile: RobotProfile;
 }
 
-export function getRobotLibrary(): SavedRobotEntry[] {
+function getRobotLibrary(): SavedRobotEntry[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -37,12 +37,6 @@ export function saveRobotToLibrary(profile: RobotProfile): SavedRobotEntry[] {
   };
 
   const next = [entry, ...library.filter(r => r.id !== profile.id)];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  return next;
-}
-
-export function removeRobotFromLibrary(id: string): SavedRobotEntry[] {
-  const next = getRobotLibrary().filter(r => r.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   return next;
 }

@@ -44,9 +44,9 @@ export default function HomePage() {
         </Link>
       </header>
 
-      <section className="flex-1 flex items-center justify-center px-4 py-16">
+      <section className="flex-1 flex items-center justify-center px-4 py-16 overflow-x-hidden">
         <div className="max-w-3xl mx-auto text-center space-y-8 relative">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-150 h-87.5 bg-emerald-500/10 rounded-full blur-[140px] pointer-events-none -z-10" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(37.5rem,90vw)] h-87.5 bg-emerald-500/10 rounded-full blur-[140px] pointer-events-none -z-10" />
 
           <h1 className="text-4xl sm:text-6xl font-display font-extrabold tracking-tight text-sand-50 leading-[1.15] animate-in fade-in slide-in-from-bottom-4">
             Agentic ROS 2 Codebase Inspection & <br />
