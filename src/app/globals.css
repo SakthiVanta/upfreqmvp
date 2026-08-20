@@ -4,59 +4,69 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Plain design mandate: minimal, near-square corners everywhere — not a
+ * hard 0 (reads too sharp/clinical), not a soft rounded look either. Every
+ * Tailwind rounded-* utility (including rounded-full) and any
+ * component-level border-radius declaration is overridden to this single
+ * value from one place. */
+*, *::before, *::after {
+  border-radius: 2px !important;
+}
+
 @theme {
   /* ---------------------------------------------------------------------
-   * Sand neutral scale — now a true, uninflected grayscale (no warm tint):
-   * black-and-white theme. 50-600 are the "text" stops (dark, for
-   * legibility on light surfaces); 700-950 are the "surface" stops
-   * (light, for page/card/chrome bg's). Naming kept as "sand" so every
-   * existing component className stays valid — only the values changed.
+   * Sand neutral scale — plain black-and-white theme, no gray hues. 50-600
+   * are the "text" stops (black, for legibility on light surfaces; lower
+   * stops fade via opacity for muted/dim text); 700-950 are the "surface"
+   * stops (white page/card/chrome bg's; 700-850 use black opacity only for
+   * borders and hover states, never a distinct gray color). Naming kept as
+   * "sand" so every existing component className stays valid — only the
+   * values changed.
    * ------------------------------------------------------------------- */
-  --color-sand-50: #0a0a0a;
-  --color-sand-100: #171717;
-  --color-sand-200: #262626;
-  --color-sand-300: #404040;
-  --color-sand-400: #595959;
-  --color-sand-500: #737373;
-  --color-sand-600: #8c8c8c;
-  --color-sand-700: #b8b8b8;
-  --color-sand-800: #dcdcdc;
-  --color-sand-850: #e6e6e6;
-  --color-sand-900: #eeeeee;
-  --color-sand-925: #f4f4f4;
+  --color-sand-50: #000000;
+  --color-sand-100: #000000;
+  --color-sand-200: rgba(0, 0, 0, 0.85);
+  --color-sand-300: rgba(0, 0, 0, 0.7);
+  --color-sand-400: rgba(0, 0, 0, 0.55);
+  --color-sand-500: rgba(0, 0, 0, 0.45);
+  --color-sand-600: rgba(0, 0, 0, 0.35);
+  --color-sand-700: rgba(0, 0, 0, 0.25);
+  --color-sand-800: rgba(0, 0, 0, 0.15);
+  --color-sand-850: rgba(0, 0, 0, 0.08);
+  --color-sand-900: #ffffff;
+  --color-sand-925: #ffffff;
   --color-sand-950: #ffffff;
 
   /* Stock Tailwind emerald-* and amber-* utility classes are used directly
    * (not just our custom .text-emerald-primary/etc. classes) in a handful
-   * of badges and banners. Overriding every stop here — same trick already
-   * used for 300/400 — retints all of them to grayscale app-wide from one
-   * place, no per-component edits needed. Amber (warning/estimated, not an
-   * error) goes grayscale too; rose/red is intentionally left untouched as
-   * the one reserved color, for destructive actions and real errors only. */
-  --color-emerald-50: #fafafa;
-  --color-emerald-100: #f0f0f0;
-  --color-emerald-200: #dcdcdc;
-  --color-emerald-300: #b0b0b0;
-  --color-emerald-400: #4d4d4d;
-  --color-emerald-500: #262626;
-  --color-emerald-600: #1a1a1a;
-  --color-emerald-700: #141414;
-  --color-emerald-800: #0d0d0d;
-  --color-emerald-850: #0a0a0a;
-  --color-emerald-900: #080808;
+   * of badges and banners. Overriding every stop here keeps them within the
+   * plain black/white palette app-wide from one place, no per-component
+   * edits needed. Rose/red is intentionally left untouched as the one
+   * reserved color, for destructive actions and real errors only. */
+  --color-emerald-50: #ffffff;
+  --color-emerald-100: #ffffff;
+  --color-emerald-200: rgba(0, 0, 0, 0.08);
+  --color-emerald-300: rgba(0, 0, 0, 0.25);
+  --color-emerald-400: rgba(0, 0, 0, 0.55);
+  --color-emerald-500: rgba(0, 0, 0, 0.75);
+  --color-emerald-600: #000000;
+  --color-emerald-700: #000000;
+  --color-emerald-800: #000000;
+  --color-emerald-850: #000000;
+  --color-emerald-900: #000000;
   --color-emerald-950: #000000;
 
-  --color-amber-50: #fafafa;
-  --color-amber-100: #f0f0f0;
-  --color-amber-200: #d4d4d4;
-  --color-amber-300: #b0b0b0;
-  --color-amber-400: #8c8c8c;
-  --color-amber-500: #737373;
-  --color-amber-600: #525252;
-  --color-amber-700: #404040;
-  --color-amber-800: #262626;
-  --color-amber-900: #171717;
-  --color-amber-950: #0a0a0a;
+  --color-amber-50: #ffffff;
+  --color-amber-100: #ffffff;
+  --color-amber-200: rgba(0, 0, 0, 0.08);
+  --color-amber-300: rgba(0, 0, 0, 0.25);
+  --color-amber-400: rgba(0, 0, 0, 0.45);
+  --color-amber-500: rgba(0, 0, 0, 0.55);
+  --color-amber-600: rgba(0, 0, 0, 0.7);
+  --color-amber-700: rgba(0, 0, 0, 0.85);
+  --color-amber-800: #000000;
+  --color-amber-900: #000000;
+  --color-amber-950: #000000;
 
   /* Professional standard sans throughout — including headings, which
    * previously used a separate display face. Monospace is kept available
@@ -70,7 +80,6 @@ html {
 @layer base {
   :root {
     --bg-main: var(--color-sand-950);
-    --bg-noise-opacity: 0.035;
 
     --surface-card: var(--color-sand-900);
     --surface-inset: var(--color-sand-950);
@@ -84,12 +93,12 @@ html {
     /* "Emerald" naming kept for every existing .text-emerald-primary /
      * .btn-emerald-primary / etc. call site — only the color is now black,
      * not green. This is the single accent color in the app. */
-    --brand-emerald: #141414;
-    --brand-emerald-hover: #000000;
-    --brand-emerald-light: #141414;
+    --brand-emerald: #000000;
+    --brand-emerald-hover: rgba(0, 0, 0, 0.85);
+    --brand-emerald-light: #000000;
     --brand-emerald-chip-bg: rgba(0, 0, 0, 0.06);
     --brand-emerald-chip-border: rgba(0, 0, 0, 0.18);
-    --brand-emerald-chip-text: #141414;
+    --brand-emerald-chip-text: #000000;
 
     /* Backwards-compatible aliases kept for any legacy references */
     --brand-indigo: var(--brand-emerald);
@@ -123,7 +132,6 @@ html {
   :focus-visible {
     outline: 2px solid var(--brand-emerald);
     outline-offset: 2px;
-    border-radius: 4px;
   }
 
   /* Real button-press feedback app-wide: a quick scale-down on press so
@@ -147,28 +155,6 @@ html {
     transform: scale(0.96);
   }
 
-  /* Subtle tactile sand-noise film for large surfaces */
-  .sand-texture {
-    position: relative;
-    isolation: isolate;
-  }
-  .sand-texture::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    opacity: var(--bg-noise-opacity);
-    mix-blend-mode: multiply;
-    background-image:
-      repeating-linear-gradient(115deg, rgba(28, 23, 18, 0.5) 0px, transparent 1px, transparent 2px, rgba(28, 23, 18, 0.5) 3px),
-      repeating-linear-gradient(25deg, rgba(28, 23, 18, 0.4) 0px, transparent 1px, transparent 3px, rgba(28, 23, 18, 0.4) 4px);
-    background-size: 5px 5px, 7px 7px;
-  }
-  .sand-texture > * {
-    position: relative;
-    z-index: 1;
-  }
 }
 
 /* -------------------------------------------------------------------------
@@ -183,7 +169,6 @@ html {
   background-color: var(--brand-emerald);
   color: var(--color-sand-950);
   font-weight: 700;
-  border-radius: 0.625rem;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -207,7 +192,6 @@ html {
   color: var(--text-primary);
   border: 1px solid var(--border-sand-strong);
   font-weight: 600;
-  border-radius: 0.625rem;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -225,7 +209,6 @@ html {
 .sand-card {
   background-color: var(--surface-card);
   border: 1px solid var(--border-sand);
-  border-radius: 0.875rem;
   transition: border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -277,7 +260,6 @@ html {
   background-color: var(--brand-emerald);
   color: var(--color-sand-950);
   font-weight: 700;
-  border-radius: 0.625rem;
   transition: all 0.2s ease;
 }
 .btn-emerald-sand:hover {
@@ -355,7 +337,6 @@ html {
 
 ::-webkit-scrollbar-thumb {
   background: var(--color-sand-700);
-  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {

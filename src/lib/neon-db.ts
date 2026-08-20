@@ -1,6 +1,5 @@
 import { neon } from '@neondatabase/serverless';
 import { drizzle as drizzleNeon } from 'drizzle-orm/neon-http';
-import { eq, and } from 'drizzle-orm';
 import * as schema from './schema';
 import { RobotProfile } from './robot-profile';
 
@@ -103,46 +102,3 @@ export async function saveRobotProfile(profile: RobotProfile, projectId?: string
   }
 }
 
-export interface RobotLibraryRow {
-  id: string;
-  repoUrl: string;
-  repoName: string;
-  robotName: string;
-  rosVersion: string | null;
-  sensorCount: number;
-  moduleCount: number;
-  analyzedAt: Date;
-  profile: RobotProfile;
-}
-
-export async function listRobotsForUser(userId: string = DEMO_USER_ID): Promise<RobotLibraryRow[]> {
-  const db = getDb();
-  if (!db) return [];
-
-  const rows = await db
-    .select()
-    .from(schema.robots)
-    .where(eq(schema.robots.userId, userId))
-    .orderBy(schema.robots.analyzedAt);
-
-  return rows
-    .map(r => ({
-      id: r.id,
-      repoUrl: r.repoUrl,
-      repoName: r.repoName,
-      robotName: r.robotName,
-      rosVersion: r.rosVersion,
-      sensorCount: r.sensorCount,
-      moduleCount: r.moduleCount,
-      analyzedAt: r.analyzedAt,
-      profile: r.profileJson as RobotProfile,
-    }))
-    .reverse();
-}
-
-export async function deleteRobot(id: string, userId: string = DEMO_USER_ID): Promise<boolean> {
-  const db = getDb();
-  if (!db) return false;
-  await db.delete(schema.robots).where(and(eq(schema.robots.id, id), eq(schema.robots.userId, userId)));
-  return true;
-}

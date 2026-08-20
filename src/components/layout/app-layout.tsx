@@ -6,22 +6,11 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { GithubIcon } from '@/components/ui/github-icon';
 import {
-  LogOut, ChevronsLeft, ChevronsRight,
-  Menu, X, RefreshCw, Database, FolderOpen
-  // Layers, Box, Bot — Parameter Matrix / 3D Studio / Robot Library nav
-  // icons, unused while those tabs are commented out below.
+  LogOut, Menu, X, RefreshCw, Database, FolderOpen
 } from 'lucide-react';
 
-// Phase 1 scope: project creation, attaching a GitHub repo, and running the
-// AI agent audit — that's it for now. Parameter Matrix, 3D Parametric
-// Studio, and Robot Library are commented out (not deleted) until a later
-// phase; their routes still work if linked to directly, they're just off
-// the nav.
 const NAV_ITEMS = [
   { href: '/projects', label: 'Projects', icon: FolderOpen },
-  // { href: '/matrix', label: '2. Parameter Matrix', icon: Layers },
-  // { href: '/studio', label: '3. 3D Parametric Studio', icon: Box },
-  // { href: '/robots', label: '4. Robot Library', icon: Bot },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -29,7 +18,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuth();
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isResettingDb, setIsResettingDb] = useState(false);
 
@@ -62,54 +50,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen overflow-hidden bg-sand-950 font-sans">
 
       {/* 1. Desktop Left Sidebar */}
-      <aside className={`hidden md:flex bg-sand-925 text-sand-200 flex-col border-r border-sand-800 transition-all duration-300 z-30 ${
-        sidebarCollapsed ? 'w-16' : 'w-64 xl:w-72'
-      }`}>
-        {/* Sidebar Header / Brand. Collapsed (w-16) stacks the toggle above
-            a smaller logo mark, centered — always visible and tappable
-            (never hover-only: a hover-gated toggle would leave touch-screen
-            users with no way to expand the sidebar at all). Icon sizes are
-            set per-state on purpose, not shared with the expanded row, so
-            the padding math for each width is exact rather than guessed. */}
-        <div className={`flex items-center border-b border-sand-800 shrink-0 ${
-          sidebarCollapsed ? 'flex-col justify-center gap-2 py-3' : 'h-16 lg:h-18 px-4 justify-between'
-        }`}>
-          {sidebarCollapsed && (
-            <button
-              onClick={() => setSidebarCollapsed(false)}
-              className="p-1.5 rounded-md text-sand-500 hover:text-sand-50 hover:bg-sand-800 transition-colors cursor-pointer"
-              title="Expand sidebar"
-            >
-              <ChevronsRight className="h-4 w-4" />
-            </button>
-          )}
-
+      <aside className="hidden md:flex bg-sand-925 text-sand-200 flex-col border-r border-sand-800 w-64 xl:w-72 z-30">
+        <div className="flex items-center border-b border-sand-800 shrink-0 h-16 lg:h-18 px-4 justify-between">
           <Link href="/projects" className="flex items-center gap-2.5 overflow-hidden">
-            {/* Collapsed sizing is deliberately matched to the nav item
-                pill's rendered width (40px: 64px rail − nav's own 12px×2
-                padding), not the expanded logo size — the brand mark should
-                never read smaller than a regular nav icon's button. */}
-            <div className={`rounded-lg bg-emerald-primary text-sand-950 flex items-center justify-center font-bold shrink-0 ${
-              sidebarCollapsed ? 'h-10 w-10 text-sm' : 'h-9 w-9 lg:h-10 lg:w-10 text-sm lg:text-base'
-            }`}>
+            <div className="bg-emerald-primary text-sand-950 flex items-center justify-center font-bold shrink-0 h-9 w-9 lg:h-10 lg:w-10 text-sm lg:text-base">
               UF
             </div>
-            {!sidebarCollapsed && (
-              <span className="font-display font-bold text-base lg:text-lg text-sand-50 tracking-tight leading-none">
-                UpFreq
-              </span>
-            )}
+            <span className="font-display font-bold text-base lg:text-lg text-sand-50 tracking-tight leading-none">
+              UpFreq
+            </span>
           </Link>
-
-          {!sidebarCollapsed && (
-            <button
-              onClick={() => setSidebarCollapsed(true)}
-              className="p-1.5 rounded-md text-sand-500 hover:text-sand-50 hover:bg-sand-800 transition-colors cursor-pointer"
-              title="Collapse sidebar"
-            >
-              <ChevronsLeft className="h-4 w-4" />
-            </button>
-          )}
         </div>
 
         {/* Sidebar Navigation Items — icon-nav-md / text-nav-md scale (see
@@ -123,16 +73,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <Link
                 key={href}
                 href={href}
-                className={`tap-scale flex items-center py-3 rounded-lg font-semibold transition-all ${
-                  sidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-3.5'
-                } ${
+                className={`tap-scale flex items-center gap-3.5 px-3.5 py-3 font-semibold transition-all ${
                   active
                     ? 'bg-emerald-primary text-sand-950'
                     : 'text-sand-300 hover:bg-sand-800 hover:text-sand-50'
                 }`}
               >
-                <Icon className={`shrink-0 ${sidebarCollapsed ? 'h-5 w-5' : 'h-5 w-5 xl:h-6 xl:w-6'}`} />
-                {!sidebarCollapsed && <span>{label}</span>}
+                <Icon className="shrink-0 h-5 w-5 xl:h-6 xl:w-6" />
+                <span>{label}</span>
               </Link>
             );
           })}
@@ -143,28 +91,26 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <button
             onClick={handleResetDatabase}
             disabled={isResettingDb}
-            className="w-full py-1.5 px-2 bg-sand-800 hover:bg-rose-950 hover:text-rose-300 text-sand-300 rounded text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all border border-sand-700 cursor-pointer disabled:opacity-60"
+            className="w-full py-1.5 px-2 bg-sand-800 hover:bg-rose-950 hover:text-rose-300 text-sand-300 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all border border-sand-700 cursor-pointer disabled:opacity-60"
           >
             {isResettingDb ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5 text-rose-400" />}
-            {!sidebarCollapsed && <span>Reset DB (Demo User)</span>}
+            <span>Reset DB (Demo User)</span>
           </button>
 
-          <div className={`flex items-center ${sidebarCollapsed ? 'flex-col gap-2' : 'justify-between'}`}>
-            <div className={`flex items-center gap-2 overflow-hidden ${sidebarCollapsed ? 'justify-center' : ''}`}>
-              <div className="h-7 w-7 rounded-full bg-sand-800 border border-sand-700 flex items-center justify-center font-bold text-xs text-emerald-400 shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <div className="h-7 w-7 bg-sand-800 border border-sand-700 flex items-center justify-center font-bold text-xs text-emerald-400 shrink-0">
                 {user?.username?.charAt(0).toUpperCase()}
               </div>
-              {!sidebarCollapsed && (
-                <div className="flex flex-col min-w-0">
-                  <span className="text-xs font-bold text-sand-100 truncate">{user?.username}</span>
-                  <span className="text-[10px] text-sand-500 truncate capitalize">{user?.provider} Auth</span>
-                </div>
-              )}
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-bold text-sand-100 truncate">{user?.username}</span>
+                <span className="text-[10px] text-sand-500 truncate capitalize">{user?.provider} Auth</span>
+              </div>
             </div>
 
             <button
               onClick={() => { logout(); router.push('/'); }}
-              className="p-1.5 rounded text-sand-500 hover:text-red-400 hover:bg-sand-800 transition-colors cursor-pointer"
+              className="p-1.5 text-sand-500 hover:text-red-400 hover:bg-sand-800 transition-colors cursor-pointer"
               title="Sign Out"
             >
               <LogOut className="h-4 w-4" />
@@ -178,7 +124,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <div className="md:hidden fixed inset-0 z-50 bg-sand-950/90 backdrop-blur-sm flex flex-col animate-in fade-in">
           <div className="bg-sand-925 text-sand-50 p-4 flex items-center justify-between border-b border-sand-800">
             <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded bg-emerald-primary text-sand-950 flex items-center justify-center font-bold text-xs">
+              <div className="h-7 w-7 bg-emerald-primary text-sand-950 flex items-center justify-center font-bold text-xs">
                 UF
               </div>
               <span className="font-bold text-sm">UpFreq</span>
@@ -196,7 +142,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   key={href}
                   href={href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`tap-scale flex items-center gap-3 p-3 rounded-xl font-bold transition-colors ${
+                  className={`tap-scale flex items-center gap-3 p-3 font-bold transition-colors ${
                     active ? 'bg-emerald-primary text-sand-950' : 'bg-sand-800 text-sand-50'
                   }`}
                 >
@@ -209,7 +155,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="pt-4 border-t border-sand-800 space-y-3">
               <button
                 onClick={handleResetDatabase}
-                className="w-full py-3 bg-rose-950 text-rose-200 border border-rose-800 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-3 bg-rose-950 text-rose-200 border border-rose-800 font-bold flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Database className="h-4 w-4" />
                 Reset DB to Demo User
@@ -217,7 +163,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
               <button
                 onClick={() => { logout(); router.push('/'); }}
-                className="w-full py-3 bg-sand-800 text-sand-300 rounded-xl font-bold flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-3 bg-sand-800 text-sand-300 font-bold flex items-center justify-center gap-2 cursor-pointer"
               >
                 <LogOut className="h-4 w-4" />
                 Sign Out
@@ -235,7 +181,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <header className="md:hidden h-14 bg-sand-925/95 backdrop-blur-md border-b border-sand-800 px-4 flex items-center justify-between shrink-0 sticky top-0 z-20">
           <button
             onClick={() => setMobileMenuOpen(true)}
-            className="p-2 text-sand-300 hover:text-sand-50 rounded-lg border border-sand-700 cursor-pointer"
+            className="p-2 text-sand-300 hover:text-sand-50 border border-sand-700 cursor-pointer"
           >
             <Menu className="h-5 w-5" />
           </button>

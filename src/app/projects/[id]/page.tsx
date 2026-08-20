@@ -520,13 +520,13 @@ function AuditProgressModal({ repoName, logs }: { repoName: string; logs: string
 
   return (
     <div className="fixed inset-0 z-50 bg-sand-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-      <div className="minimal-card w-full max-w-lg p-6 space-y-4 animate-in fade-in slide-in-from-top-4">
-        <div className="flex items-center gap-2.5">
+      <div className="minimal-card w-full max-w-lg max-h-[85vh] p-6 flex flex-col space-y-4 animate-in fade-in slide-in-from-top-4">
+        <div className="flex items-center gap-2.5 shrink-0">
           <Loader2 className="h-5 w-5 animate-spin text-emerald-primary shrink-0" />
           <h3 className="text-sm font-bold text-sand-50 truncate">Auditing {repoName}</h3>
         </div>
 
-        <div ref={scrollRef} className="max-h-80 overflow-y-auto space-y-2.5 text-xs pr-1">
+        <div ref={scrollRef} className="overflow-y-auto space-y-2.5 text-xs pr-1">
           {logs.length === 0 && (
             <div className="flex items-start gap-2.5 text-sand-500">
               <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0 mt-0.5" />
