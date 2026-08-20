@@ -572,7 +572,7 @@ function ParametricViewerLoaded({ robot }: { robot: RobotProfile }) {
               onClick={() => setSelectedRobot(robot)}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 border cursor-pointer ${
                 activeRobot.id === robot.id
-                  ? 'bg-emerald-primary text-sand-950 border-emerald-primary shadow-xs'
+                  ? 'bg-emerald-primary text-sand-950 border-emerald-primary'
                   : 'bg-sand-950 text-sand-300 border-sand-800 hover:bg-sand-800'
               }`}
             >
@@ -661,7 +661,7 @@ function ParametricViewerLoaded({ robot }: { robot: RobotProfile }) {
           {/* 3D WebGL Canvas Viewport */}
           <div className="minimal-card relative h-105 sm:h-130 overflow-hidden bg-sand-950 rounded-2xl">
 
-            <div className="absolute top-3 left-3 z-10 flex items-center gap-2 bg-sand-950/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-sand-800 text-xs shadow-xs text-sand-100 max-w-[calc(100%-1.5rem)]">
+            <div className="absolute top-3 left-3 z-10 flex items-center gap-2 bg-sand-950/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-sand-800 text-xs text-sand-100 max-w-[calc(100%-1.5rem)]">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
               <span className="font-bold truncate">{activeRobot.name.toUpperCase()} (3D MODEL VIEWPORT)</span>
             </div>
@@ -737,7 +737,7 @@ function ParametricViewerLoaded({ robot }: { robot: RobotProfile }) {
               <OrbitControls enableDamping dampingFactor={0.05} />
             </Canvas>
 
-            <div className="absolute bottom-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 bg-sand-950/90 backdrop-blur-md p-3 rounded-xl border border-sand-800 text-xs shadow-xs text-sand-100">
+            <div className="absolute bottom-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 bg-sand-950/90 backdrop-blur-md p-3 rounded-xl border border-sand-800 text-xs text-sand-100">
               <button
                 onClick={handleRunHILTest}
                 disabled={isTesting}

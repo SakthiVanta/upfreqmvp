@@ -6,8 +6,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { GithubIcon } from '@/components/ui/github-icon';
 import {
-  LogOut, ChevronLeft, ChevronRight,
-  Menu, X, RefreshCw, Database, FolderPlus
+  LogOut, ChevronsLeft, ChevronsRight,
+  Menu, X, RefreshCw, Database, FolderOpen
   // Layers, Box, Bot — Parameter Matrix / 3D Studio / Robot Library nav
   // icons, unused while those tabs are commented out below.
 } from 'lucide-react';
@@ -18,7 +18,7 @@ import {
 // phase; their routes still work if linked to directly, they're just off
 // the nav.
 const NAV_ITEMS = [
-  { href: '/projects', label: 'Projects', icon: FolderPlus },
+  { href: '/projects', label: 'Projects', icon: FolderOpen },
   // { href: '/matrix', label: '2. Parameter Matrix', icon: Layers },
   // { href: '/studio', label: '3. 3D Parametric Studio', icon: Box },
   // { href: '/robots', label: '4. Robot Library', icon: Bot },
@@ -63,44 +63,71 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* 1. Desktop Left Sidebar */}
       <aside className={`hidden md:flex bg-sand-925 text-sand-200 flex-col border-r border-sand-800 transition-all duration-300 z-30 ${
-        sidebarCollapsed ? 'w-16' : 'w-64'
+        sidebarCollapsed ? 'w-16' : 'w-64 xl:w-72'
       }`}>
-        {/* Sidebar Header / Brand */}
-        <div className="h-16 px-4 flex items-center justify-between border-b border-sand-800 shrink-0">
+        {/* Sidebar Header / Brand. Collapsed (w-16) stacks the toggle above
+            a smaller logo mark, centered — always visible and tappable
+            (never hover-only: a hover-gated toggle would leave touch-screen
+            users with no way to expand the sidebar at all). Icon sizes are
+            set per-state on purpose, not shared with the expanded row, so
+            the padding math for each width is exact rather than guessed. */}
+        <div className={`flex items-center border-b border-sand-800 shrink-0 ${
+          sidebarCollapsed ? 'flex-col justify-center gap-2 py-3' : 'h-16 lg:h-18 px-4 justify-between'
+        }`}>
+          {sidebarCollapsed && (
+            <button
+              onClick={() => setSidebarCollapsed(false)}
+              className="p-1.5 rounded-md text-sand-500 hover:text-sand-50 hover:bg-sand-800 transition-colors cursor-pointer"
+              title="Expand sidebar"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </button>
+          )}
+
           <Link href="/projects" className="flex items-center gap-2.5 overflow-hidden">
-            <div className="h-8 w-8 rounded-lg bg-emerald-primary text-sand-950 flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+            <div className={`rounded-lg bg-emerald-primary text-sand-950 flex items-center justify-center font-bold shrink-0 ${
+              sidebarCollapsed ? 'h-8 w-8 text-xs' : 'h-9 w-9 lg:h-10 lg:w-10 text-sm lg:text-base'
+            }`}>
               UF
             </div>
             {!sidebarCollapsed && (
-              <span className="font-display font-bold text-sm text-sand-50 tracking-tight leading-none">
+              <span className="font-display font-bold text-base lg:text-lg text-sand-50 tracking-tight leading-none">
                 UpFreq
               </span>
             )}
           </Link>
 
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="p-1.5 rounded-md text-sand-500 hover:text-sand-50 hover:bg-sand-800 transition-colors cursor-pointer"
-          >
-            {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          </button>
+          {!sidebarCollapsed && (
+            <button
+              onClick={() => setSidebarCollapsed(true)}
+              className="p-1.5 rounded-md text-sand-500 hover:text-sand-50 hover:bg-sand-800 transition-colors cursor-pointer"
+              title="Collapse sidebar"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
-        {/* Sidebar Navigation Items */}
-        <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto text-xs">
+        {/* Sidebar Navigation Items — icon-nav-md / text-nav-md scale (see
+            architecture/02_ui_design_system_and_palette.md "Sidebar
+            Navigation Scale"), one step up on xl+ screens where there's
+            room for it. */}
+        <nav className="flex-1 p-3 space-y-1.5 overflow-y-auto text-sm xl:text-base">
           {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || (href === '/projects' && pathname === '/');
             return (
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg font-semibold transition-all ${
+                className={`tap-scale flex items-center py-3 rounded-lg font-semibold transition-all ${
+                  sidebarCollapsed ? 'justify-center px-0' : 'gap-3.5 px-3.5'
+                } ${
                   active
-                    ? 'bg-emerald-primary text-sand-950 shadow-xs'
+                    ? 'bg-emerald-primary text-sand-950'
                     : 'text-sand-300 hover:bg-sand-800 hover:text-sand-50'
                 }`}
               >
-                <Icon className="h-4 w-4 shrink-0" />
+                <Icon className={`shrink-0 ${sidebarCollapsed ? 'h-5 w-5' : 'h-5 w-5 xl:h-6 xl:w-6'}`} />
                 {!sidebarCollapsed && <span>{label}</span>}
               </Link>
             );
@@ -118,8 +145,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             {!sidebarCollapsed && <span>Reset DB (Demo User)</span>}
           </button>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 overflow-hidden">
+          <div className={`flex items-center ${sidebarCollapsed ? 'flex-col gap-2' : 'justify-between'}`}>
+            <div className={`flex items-center gap-2 overflow-hidden ${sidebarCollapsed ? 'justify-center' : ''}`}>
               <div className="h-7 w-7 rounded-full bg-sand-800 border border-sand-700 flex items-center justify-center font-bold text-xs text-emerald-400 shrink-0">
                 {user?.username?.charAt(0).toUpperCase()}
               </div>
@@ -165,7 +192,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   key={href}
                   href={href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 p-3 rounded-xl font-bold transition-colors ${
+                  className={`tap-scale flex items-center gap-3 p-3 rounded-xl font-bold transition-colors ${
                     active ? 'bg-emerald-primary text-sand-950' : 'bg-sand-800 text-sand-50'
                   }`}
                 >
