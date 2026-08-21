@@ -101,7 +101,43 @@ export const userApiKeys = pgTable('user_api_keys', {
   uniqueIndex('user_api_keys_user_provider_idx').on(table.userId, table.provider),
 ]);
 
-// 8. Audit Runs — telemetry for every /api/analyze run: real token usage
+// 9. Robot Designs — Level 1 manual URDF builder. One row per design a user
+// is building by hand: upload mesh files, place them as links, wire up
+// joints, export URDF. Distinct from `robots` (repo-audit results) — this
+// table has no repo, no analysis, just user-authored structure.
+export const robotDesigns = pgTable('robot_designs', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  projectId: varchar('project_id', { length: 255 }).references(() => projects.id, { onDelete: 'set null' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  linksJson: jsonb('links_json').notNull().default('[]'),
+  jointsJson: jsonb('joints_json').notNull().default('[]'),
+  urdfXml: text('urdf_xml'),
+  status: varchar('status', { length: 50 }).notNull().default('draft'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// 10. Robot Design Mesh Files — one row per uploaded mesh (Vercel Blob), FK'd
+// to the design it belongs to. Kept as its own table rather than embedding
+// URLs inside links_json so an uploaded file can exist before it's assigned
+// to a link, orphaned/unassigned blobs stay queryable, and blobPathname
+// (needed for @vercel/blob's del()) stays separate from the public blobUrl
+// handed to the 3D viewer.
+export const robotDesignMeshFiles = pgTable('robot_design_mesh_files', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  designId: varchar('design_id', { length: 255 }).notNull().references(() => robotDesigns.id, { onDelete: 'cascade' }),
+  userId: varchar('user_id', { length: 255 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  blobUrl: text('blob_url').notNull(),
+  blobPathname: text('blob_pathname').notNull(),
+  originalFilename: varchar('original_filename', { length: 500 }).notNull(),
+  extension: varchar('extension', { length: 10 }).notNull(),
+  sizeBytes: integer('size_bytes').notNull(),
+  uploadedAt: timestamp('uploaded_at').defaultNow().notNull(),
+});
+
+// 11. Audit Runs — telemetry for every /api/analyze run: real token usage
 // pulled from each provider's own response (see src/lib/agent/), not
 // estimated. This is the only source of truth for "how much does an audit
 // actually cost" — before this table existed there was no way to answer
