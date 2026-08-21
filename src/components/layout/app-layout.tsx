@@ -8,11 +8,12 @@ import { GithubIcon } from '@/components/ui/github-icon';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toast';
 import {
-  LogOut, Menu, X, RefreshCw, Database, FolderOpen, Settings
+  LogOut, Menu, X, RefreshCw, Database, FolderOpen, Settings, Bot
 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { href: '/projects', label: 'Projects', icon: FolderOpen },
+  { href: '/robots', label: 'Robots', icon: Bot },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
