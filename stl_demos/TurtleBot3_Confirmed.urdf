@@ -1,0 +1,76 @@
+<?xml version="1.0"?>
+<robot name="TurtleBot3 Confirmed">
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="https://baubykekrezi9npr.public.blob.vercel-storage.com/robot-designs/rd_7b14a4e8-a8f0-44b9-a716-6d3ef5bdbfba/1787274662793-burger_base.stl"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="https://baubykekrezi9npr.public.blob.vercel-storage.com/robot-designs/rd_7b14a4e8-a8f0-44b9-a716-6d3ef5bdbfba/1787274662793-burger_base.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="wheel_left">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="https://baubykekrezi9npr.public.blob.vercel-storage.com/robot-designs/rd_7b14a4e8-a8f0-44b9-a716-6d3ef5bdbfba/1787274669870-left_tire.stl"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="https://baubykekrezi9npr.public.blob.vercel-storage.com/robot-designs/rd_7b14a4e8-a8f0-44b9-a716-6d3ef5bdbfba/1787274669870-left_tire.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="wheel_right">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="https://baubykekrezi9npr.public.blob.vercel-storage.com/robot-designs/rd_7b14a4e8-a8f0-44b9-a716-6d3ef5bdbfba/1787274675104-right_tire.stl"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="https://baubykekrezi9npr.public.blob.vercel-storage.com/robot-designs/rd_7b14a4e8-a8f0-44b9-a716-6d3ef5bdbfba/1787274675104-right_tire.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <link name="lds_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="https://baubykekrezi9npr.public.blob.vercel-storage.com/robot-designs/rd_7b14a4e8-a8f0-44b9-a716-6d3ef5bdbfba/1787274677836-lds.stl"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <mesh filename="https://baubykekrezi9npr.public.blob.vercel-storage.com/robot-designs/rd_7b14a4e8-a8f0-44b9-a716-6d3ef5bdbfba/1787274677836-lds.stl"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="wheel_left_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="wheel_left"/>
+    <origin xyz="0 0 -76.17171335220337" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+  <joint name="wheel_right_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="wheel_right"/>
+    <origin xyz="0 0 -76.17171335220337" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+  <joint name="lds_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="lds_link"/>
+    <origin xyz="13.924219131469727 0.057590484619140625 -86.7717137336731" rpy="0 0 0"/>
+  </joint>
+</robot>

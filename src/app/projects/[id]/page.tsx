@@ -155,7 +155,11 @@ export default function ProjectDetailPage() {
   };
 
   if (project === undefined) {
-    return null;
+    return (
+      <div className="minimal-card p-12 text-center">
+        <Loader2 className="h-6 w-6 mx-auto text-sand-500 animate-spin" />
+      </div>
+    );
   }
 
   if (project === null) {

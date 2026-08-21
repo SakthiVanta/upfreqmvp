@@ -7,20 +7,29 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "test": "vitest run",
     "db:seed": "tsx --env-file=.env scripts/seed-provider-models.ts",
     "eval:agent": "tsx --env-file=.env scripts/eval-agent.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
+    "@react-three/drei": "^10.7.8",
+    "@react-three/fiber": "^9.7.0",
+    "@vercel/blob": "^2.8.0",
     "better-sqlite3": "^13.0.3",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
     "framer-motion": "^13.1.0",
+    "jszip": "^3.10.1",
     "lucide-react": "^1.32.0",
     "next": "16.3.1",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "tailwind-merge": "^3.6.0"
+    "tailwind-merge": "^3.6.0",
+    "three": "^0.185.1",
+    "three-stdlib": "^2.36.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -29,13 +38,15 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.185.4",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.1",
     "playwright": "^1.62.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   },
   "packageManager": "pnpm@10.22.0"
 }
