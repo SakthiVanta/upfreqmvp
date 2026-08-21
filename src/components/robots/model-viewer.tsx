@@ -1,17 +1,16 @@
 'use client';
 
-import { Suspense, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
-import { TrackballControls, useGLTF, Grid } from '@react-three/drei';
-import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
-import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { TrackballControls, Grid } from '@react-three/drei';
 import { Box } from 'lucide-react';
 import { RobotLink, RobotJoint, Vec3 } from '@/lib/urdf/types';
+import { load3DModelFromUrl, Supported3DFormat } from '@/lib/mesh/cad-loader';
 
 export interface LinkMeshRef {
   url: string;
-  extension: 'stl' | 'obj' | 'glb' | 'gltf';
+  extension: Supported3DFormat | string;
   scale?: number;
 }
 
@@ -277,32 +276,62 @@ function LinkNode({
   );
 }
 
-function MeshGeometry({ url, extension, selected }: { url: string; extension: LinkMeshRef['extension']; selected?: boolean }) {
-  switch (extension) {
-    case 'stl':
-      return <StlMesh url={url} selected={selected} />;
-    case 'obj':
-      return <ObjMesh url={url} />;
-    default:
-      return <GltfMesh url={url} />;
+function MeshGeometry({
+  url,
+  extension,
+  selected,
+}: {
+  url: string;
+  extension: LinkMeshRef['extension'];
+  selected?: boolean;
+}) {
+  const [model, setModel] = useState<THREE.Object3D | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    load3DModelFromUrl(url, extension)
+      .then((obj) => {
+        if (!active) return;
+        setModel(obj);
+      })
+      .catch((err) => {
+        if (!active) return;
+        console.error('Failed to load 3D model:', err);
+        setError(err.message || 'Error loading 3D model');
+      });
+    return () => {
+      active = false;
+    };
+  }, [url, extension]);
+
+  const displayObject = useMemo(() => {
+    if (!model) return null;
+    const cloned = model.clone(true);
+    if (selected) {
+      cloned.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.material = new THREE.MeshStandardMaterial({
+            color: '#34d399',
+            roughness: 0.3,
+            metalness: 0.2,
+          });
+        }
+      });
+    }
+    return cloned;
+  }, [model, selected]);
+
+  if (error) {
+    return (
+      <mesh>
+        <boxGeometry args={[0.05, 0.05, 0.05]} />
+        <meshStandardMaterial color="#f43f5e" wireframe />
+      </mesh>
+    );
   }
-}
 
-function StlMesh({ url, selected }: { url: string; selected?: boolean }) {
-  const geometry = useLoader(STLLoader, url);
-  return (
-    <mesh geometry={geometry}>
-      <meshStandardMaterial color={selected ? '#34d399' : '#a8a29e'} />
-    </mesh>
-  );
-}
+  if (!displayObject) return null;
 
-function ObjMesh({ url }: { url: string }) {
-  const obj = useLoader(OBJLoader, url);
-  return <primitive object={obj} />;
-}
-
-function GltfMesh({ url }: { url: string }) {
-  const { scene } = useGLTF(url);
-  return <primitive object={scene} />;
+  return <primitive object={displayObject} />;
 }

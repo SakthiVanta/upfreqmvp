@@ -7,11 +7,13 @@ import { loadBoundsMeters } from '@/lib/mesh/load-bounds';
 import { generateTopologySuggestion, TopologySuggestion, TopologyBlueprint, BlueprintJointSuggestion } from '@/lib/user-robot-designs';
 import { useToast } from '@/components/ui/toast';
 
+import { Supported3DFormat } from '@/lib/mesh/cad-loader';
+
 export interface LinkMeshInfo {
   linkId: string;
   name: string;
   url: string;
-  extension: 'stl' | 'obj' | 'glb' | 'gltf';
+  extension: Supported3DFormat | string;
   scale?: number;
 }
 

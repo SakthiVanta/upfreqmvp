@@ -1,19 +1,23 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Plus, Trash2, Link2, AlertTriangle, ChevronDown, ChevronUp, Loader2, Info } from 'lucide-react';
+import { Plus, Trash2, Link2, AlertTriangle, ChevronDown, ChevronUp, Loader2, Info, Layers } from 'lucide-react';
 import { RobotLink, Vec3 } from '@/lib/urdf/types';
 import { ValidationIssue } from '@/lib/urdf/serialize';
 import { NumberInput } from '@/components/ui/number-input';
+import { SUPPORTED_3D_EXTENSIONS, getFormatInfo, isCadSolidFormat } from '@/lib/mesh/cad-loader';
 
-const ALLOWED_EXTENSIONS = ['stl', 'obj', 'glb', 'gltf'];
+const ALLOWED_EXTENSIONS = SUPPORTED_3D_EXTENSIONS;
+const ACCEPT_FILE_FILTER = SUPPORTED_3D_EXTENSIONS.map((e) => `.${e}`).join(',');
 
 interface LinksPanelProps {
   links: RobotLink[];
   selectedLinkId?: string;
   issues: ValidationIssue[];
+  meshFormatByLinkId?: Map<string, string>;
   onSelectLink: (id: string) => void;
   onAddLink: (file: File) => Promise<void>;
+  onOpenUploadModal?: () => void;
   onReplaceMesh: (linkId: string, file: File) => Promise<void>;
   onUpdateOrigin: (linkId: string, xyz: Vec3) => void;
   onUpdateRpy: (linkId: string, rpy: Vec3) => void;
@@ -32,8 +36,10 @@ export function LinksPanel({
   links,
   selectedLinkId,
   issues,
+  meshFormatByLinkId,
   onSelectLink,
   onAddLink,
+  onOpenUploadModal,
   onReplaceMesh,
   onUpdateOrigin,
   onUpdateRpy,
@@ -53,8 +59,10 @@ export function LinksPanel({
 
   const handleAddFile = async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase() || '';
-    if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      errorMessage(`Unsupported file type ".${ext}" — use .stl, .obj, .glb, or .gltf`);
+    if (!ALLOWED_EXTENSIONS.includes(ext as any)) {
+      errorMessage(
+        `Unsupported file type ".${ext}" — supported formats: STEP (.step, .stp), IGES (.iges, .igs), STL, OBJ, Collada (.dae), glTF/GLB, 3MF, PLY, FBX`
+      );
       return;
     }
     await onAddLink(file);
@@ -70,7 +78,7 @@ export function LinksPanel({
         <input
           ref={addInputRef}
           type="file"
-          accept=".stl,.obj,.glb,.gltf"
+          accept={ACCEPT_FILE_FILTER}
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -80,7 +88,7 @@ export function LinksPanel({
           disabled={isBusy}
         />
         <button
-          onClick={() => addInputRef.current?.click()}
+          onClick={() => (onOpenUploadModal ? onOpenUploadModal() : addInputRef.current?.click())}
           disabled={isBusy}
           className="px-2.5 py-1.5 bg-sand-800 hover:bg-sand-700 text-sand-50 rounded-lg font-bold flex items-center gap-1 cursor-pointer text-xs disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -90,7 +98,9 @@ export function LinksPanel({
       </div>
 
       {links.length === 0 && (
-        <p className="text-xs text-sand-500 text-center py-4">No links yet. Each link needs its own mesh file — pick one and it&apos;ll be named after the file automatically.</p>
+        <p className="text-xs text-sand-500 text-center py-4">
+          No links yet. Upload a CAD solid (STEP/IGES) or 3D mesh (STL/OBJ/GLTF/3MF) — each file creates a link.
+        </p>
       )}
 
       <div className="space-y-2">
@@ -102,6 +112,12 @@ export function LinksPanel({
           const linkIssues = issues.filter((i) => i.linkId === link.id);
           const physicalOpen = expandedPhysicalId === link.id;
           const offsetOpen = expandedOffsetId === link.id;
+
+          const rawExt =
+            meshFormatByLinkId?.get(link.id) ||
+            (link.meshUrl ? link.meshUrl.split('?')[0].split('.').pop() || 'stl' : '');
+          const formatInfo = rawExt ? getFormatInfo(rawExt) : null;
+          const isCad = rawExt ? isCadSolidFormat(rawExt) : false;
 
           return (
             <div
@@ -120,6 +136,15 @@ export function LinksPanel({
                   title="Click to rename"
                   className="flex-1 min-w-0 bg-sand-950 border border-sand-700 rounded px-2 py-1 font-bold text-sand-100 text-xs focus:outline-none focus:border-emerald-primary truncate"
                 />
+                {formatInfo && (
+                  <span
+                    title={`${formatInfo.fullName}\n${formatInfo.description}\nSoftware: ${formatInfo.industrySoftware}`}
+                    className="px-1.5 py-0.5 text-[9px] uppercase font-mono tracking-wider bg-sand-900 border border-sand-700 text-sand-300 rounded shrink-0 flex items-center gap-1"
+                  >
+                    {isCad && <Layers className="h-2.5 w-2.5 text-emerald-primary" />}
+                    {formatInfo.label}
+                  </span>
+                )}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -149,13 +174,15 @@ export function LinksPanel({
               )}
 
               {link.meshUrl ? (
-                <div className="mt-2 flex items-center gap-3 text-[11px] text-sand-500">
-                  <span className="truncate">Mesh attached</span>
+                <div className="mt-2 flex items-center justify-between text-[11px] text-sand-500">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <span className="truncate">{isCad ? 'CAD Solid attached' : 'Mesh attached'}</span>
+                  </div>
                   <label className="text-emerald-primary font-bold cursor-pointer shrink-0" onClick={(e) => e.stopPropagation()}>
                     Replace
                     <input
                       type="file"
-                      accept=".stl,.obj,.glb,.gltf"
+                      accept={ACCEPT_FILE_FILTER}
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
@@ -166,13 +193,13 @@ export function LinksPanel({
                   </label>
                 </div>
               ) : (
-                <div className="mt-2 flex items-center gap-3 text-[11px]" onClick={(e) => e.stopPropagation()}>
-                  <span className="text-amber-500">No mesh attached</span>
+                <div className="mt-2 flex items-center justify-between text-[11px]" onClick={(e) => e.stopPropagation()}>
+                  <span className="text-amber-500">No 3D file attached</span>
                   <label className="text-emerald-primary font-bold cursor-pointer shrink-0">
-                    Attach Mesh
+                    Attach CAD / Mesh
                     <input
                       type="file"
-                      accept=".stl,.obj,.glb,.gltf"
+                      accept={ACCEPT_FILE_FILTER}
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
@@ -186,7 +213,7 @@ export function LinksPanel({
 
               {link.meshUrl && (
                 <div className="mt-2 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                  <label className="text-sand-600 text-[10px] font-bold uppercase shrink-0">Mesh scale</label>
+                  <label className="text-sand-600 text-[10px] font-bold uppercase shrink-0">Scale</label>
                   <NumberInput
                     value={link.meshScale ?? 1}
                     onChange={(v) => onUpdateScale(link.id, v !== undefined && v > 0 ? v : undefined)}
@@ -195,7 +222,7 @@ export function LinksPanel({
                   <button
                     onClick={() => onUpdateScale(link.id, 0.001)}
                     className="p-1 text-sand-500 hover:text-emerald-primary cursor-pointer shrink-0"
-                    title="Model looks huge or the camera seems stuck inside it? STL files are commonly authored in millimeters — click to scale this mesh down to meters (×0.001)."
+                    title="Model looks huge? CAD & STL files are commonly exported in millimeters — click to scale down to meters (×0.001)."
                   >
                     <Info className="h-3.5 w-3.5" />
                   </button>
@@ -278,7 +305,11 @@ export function LinksPanel({
                         <button
                           onClick={() => onEstimateInertia(link.id)}
                           disabled={link.mass === undefined || isEstimatingInertia === link.id}
-                          title={link.mass === undefined ? 'Enter a mass first' : 'Estimate ixx/iyy/izz from a solid-box approximation of the mesh\'s real measured dimensions'}
+                          title={
+                            link.mass === undefined
+                              ? 'Enter a mass first'
+                              : "Estimate ixx/iyy/izz from a solid-box approximation of the model's real measured dimensions"
+                          }
                           className="text-[10px] font-bold text-emerald-primary hover:underline cursor-pointer disabled:text-sand-700 disabled:no-underline disabled:cursor-not-allowed flex items-center gap-1"
                         >
                           {isEstimatingInertia === link.id && <Loader2 className="h-2.5 w-2.5 animate-spin" />}

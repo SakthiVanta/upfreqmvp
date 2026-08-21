@@ -84,7 +84,9 @@ export async function deleteRobotDesign(id: string): Promise<void> {
   await parseOrThrow(res);
 }
 
-const ALLOWED_MESH_EXTENSIONS = ['stl', 'obj', 'glb', 'gltf'];
+import { SUPPORTED_3D_EXTENSIONS } from './mesh/cad-loader';
+
+const ALLOWED_MESH_EXTENSIONS = SUPPORTED_3D_EXTENSIONS;
 
 // Uploads go straight from the browser to Blob storage (a short-lived
 // client token is fetched from /files/client-upload first), then the
@@ -93,8 +95,10 @@ const ALLOWED_MESH_EXTENSIONS = ['stl', 'obj', 'glb', 'gltf'];
 // which has a payload limit well under what a real mesh file can hit.
 export async function uploadMeshFile(designId: string, file: File): Promise<MeshFile> {
   const extension = file.name.split('.').pop()?.toLowerCase() || '';
-  if (!ALLOWED_MESH_EXTENSIONS.includes(extension)) {
-    throw new Error(`Unsupported file type ".${extension}" — use .stl, .obj, .glb, or .gltf`);
+  if (!ALLOWED_MESH_EXTENSIONS.includes(extension as any)) {
+    throw new Error(
+      `Unsupported file type ".${extension}" — supported formats: STEP (.step, .stp), IGES (.iges, .igs), STL, OBJ, Collada (.dae), glTF/GLB, 3MF, PLY, FBX`
+    );
   }
 
   const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');

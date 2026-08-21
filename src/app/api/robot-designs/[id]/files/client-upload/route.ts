@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server';
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { getRobotDesign } from '@/lib/db/robot-designs';
+import { SUPPORTED_3D_EXTENSIONS } from '@/lib/mesh/cad-loader';
 
 export const runtime = 'nodejs';
 
-const ALLOWED_EXTENSIONS = ['stl', 'obj', 'glb', 'gltf'];
+const ALLOWED_EXTENSIONS = SUPPORTED_3D_EXTENSIONS;
 // Client-direct uploads go straight from the browser to Blob storage, so
 // they aren't bound by the ~4.5MB payload limit a Next.js serverless
 // function proxying the bytes would hit.
@@ -25,12 +26,27 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
         if (!design) throw new Error('Robot design not found');
 
         const extension = pathname.split('.').pop()?.toLowerCase() || '';
-        if (!ALLOWED_EXTENSIONS.includes(extension)) {
-          throw new Error(`Unsupported file type ".${extension}" — use .stl, .obj, .glb, or .gltf`);
+        if (!ALLOWED_EXTENSIONS.includes(extension as any)) {
+          throw new Error(
+            `Unsupported file type ".${extension}" — supported formats: STEP (.step, .stp), IGES (.iges, .igs), STL, OBJ, Collada (.dae), glTF/GLB, 3MF, PLY, FBX`
+          );
         }
 
         return {
-          allowedContentTypes: ['model/stl', 'model/obj', 'model/gltf-binary', 'model/gltf+json', 'application/octet-stream'],
+          allowedContentTypes: [
+            'model/stl',
+            'model/obj',
+            'model/gltf-binary',
+            'model/gltf+json',
+            'model/step',
+            'model/iges',
+            'model/3mf',
+            'model/vnd.collada+xml',
+            'application/step',
+            'application/sla',
+            'application/octet-stream',
+            'text/plain',
+          ],
           maximumSizeInBytes: MAX_BYTES,
           tokenPayload: JSON.stringify({ designId: id }),
         };

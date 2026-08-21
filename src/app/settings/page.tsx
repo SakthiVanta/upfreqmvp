@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Check, Loader2, AlertTriangle, Bot, Eye, EyeOff, Trash2, KeyRound, Gauge, Activity } from 'lucide-react';
+import { Check, Loader2, AlertTriangle, Bot, Eye, EyeOff, Trash2, KeyRound, Gauge, Activity, Cpu, CheckCircle2, Save } from 'lucide-react';
 import { PROVIDERS, DEFAULT_MODEL_BY_PROVIDER, ANTHROPIC_EFFORT_LEVELS, ProviderId, AgentSettings } from '@/lib/agent/types';
 import { useConfirm } from '@/components/ui/confirm-dialog';
+import { getSavedIsaacConfig, saveIsaacConfig, checkServerHealth, DEFAULT_ISAAC_CONFIG } from '@/lib/isaac-sim/client';
+import { IsaacSimServerConfig, IsaacSimHealthResponse } from '@/lib/isaac-sim/types';
 
 const CUSTOM_MODEL_VALUE = '__custom__';
 
@@ -383,6 +385,22 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* NVIDIA Isaac Sim Server Connection */}
+      <div className="minimal-card p-5 sm:p-6 space-y-5">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-sand-50 uppercase tracking-wider flex items-center gap-2">
+              <Bot className="h-4 w-4 text-emerald-primary" /> NVIDIA Isaac Sim Server
+            </h3>
+            <p className="text-xs text-sand-400">
+              Configure connection to your Isaac Sim workstation or cloud GPU instance for WebRTC live simulation.
+            </p>
+          </div>
+        </div>
+
+        <IsaacSimSettingsCard />
+      </div>
+
       <div className="flex items-start gap-2.5 text-xs text-sand-500">
         <Bot className="h-4 w-4 shrink-0 mt-0.5 text-sand-600" />
         <p>Keys you save here are encrypted before they&apos;re stored and never shown again in full — only a masked preview. Server env vars ({PROVIDERS.map(p => p.envKey).join(', ')}) are just the fallback when no key is saved for a provider.</p>
@@ -444,6 +462,162 @@ export default function SettingsPage() {
         )}
       </div>
 
+    </div>
+  );
+}
+
+function IsaacSimSettingsCard() {
+  const [config, setConfig] = useState<IsaacSimServerConfig>(DEFAULT_ISAAC_CONFIG);
+  const [isTesting, setIsTesting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    data?: IsaacSimHealthResponse;
+    error?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    setConfig(getSavedIsaacConfig());
+  }, []);
+
+  const handleTest = async () => {
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+      const data = await checkServerHealth(config.serverUrl, config.apiKey || undefined);
+      setTestResult({ success: true, data });
+      if (data.webrtc?.stream_url && !config.webrtcStreamUrl) {
+        setConfig((prev) => ({ ...prev, webrtcStreamUrl: data.webrtc.stream_url }));
+      }
+    } catch (e: any) {
+      setTestResult({ success: false, error: e.message || 'Connection failed.' });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleSave = () => {
+    setIsSaving(true);
+    saveIsaacConfig(config);
+    setJustSaved(true);
+    setTimeout(() => {
+      setIsSaving(false);
+      setJustSaved(false);
+    }, 2000);
+  };
+
+  return (
+    <div className="space-y-4 text-xs font-sans">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <div className="space-y-1">
+          <label className="block text-sand-400 font-bold uppercase text-[10px]">
+            Bridge Server URL (HTTP/WS)
+          </label>
+          <input
+            type="text"
+            value={config.serverUrl}
+            onChange={(e) => setConfig({ ...config, serverUrl: e.target.value })}
+            placeholder="http://localhost:8000"
+            className="w-full px-3 py-2 border border-sand-700 bg-sand-950 text-sand-50 text-xs font-mono focus:outline-none focus:border-emerald-primary"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="block text-sand-400 font-bold uppercase text-[10px]">
+            WebRTC Live Stream WebSocket URL
+          </label>
+          <input
+            type="text"
+            value={config.webrtcStreamUrl || ''}
+            onChange={(e) => setConfig({ ...config, webrtcStreamUrl: e.target.value })}
+            placeholder="ws://localhost:49100"
+            className="w-full px-3 py-2 border border-sand-700 bg-sand-950 text-sand-50 text-xs font-mono focus:outline-none focus:border-emerald-primary"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="block text-sand-400 font-bold uppercase text-[10px]">
+            API Key / Secret Header (Optional)
+          </label>
+          <input
+            type="password"
+            value={config.apiKey || ''}
+            onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
+            placeholder="Matches X-UpFreq-Key"
+            className="w-full px-3 py-2 border border-sand-700 bg-sand-950 text-sand-50 text-xs font-mono focus:outline-none focus:border-emerald-primary"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="block text-sand-400 font-bold uppercase text-[10px]">
+            Default Simulation Environment
+          </label>
+          <select
+            value={config.groundPlane}
+            onChange={(e) => setConfig({ ...config, groundPlane: e.target.value as any })}
+            className="w-full px-3 py-2 border border-sand-700 bg-sand-950 text-sand-50 text-xs focus:outline-none focus:border-emerald-primary"
+          >
+            <option value="grid">Metric Precision Grid</option>
+            <option value="warehouse">Logistics Warehouse</option>
+            <option value="laboratory">Robotics Testbed Lab</option>
+            <option value="empty">Empty USD Stage</option>
+          </select>
+        </div>
+      </div>
+
+      {testResult && (
+        <div
+          className={`p-3 border text-xs ${
+            testResult.success
+              ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300'
+              : 'bg-rose-950/40 border-rose-800/60 text-rose-300'
+          }`}
+        >
+          {testResult.success ? (
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 font-bold">
+                <CheckCircle2 className="h-4 w-4 text-emerald-primary" />
+                <span>Connected to Isaac Sim Bridge</span>
+              </div>
+              <div className="text-[11px] text-sand-400 grid grid-cols-2 gap-2 mt-1">
+                <div>FPS: <span className="text-sand-100 font-mono">{testResult.data?.isaac_sim.fps}</span></div>
+                <div>Status: <span className="text-sand-100 font-mono">Ready / Active</span></div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold">Connection Failed: </span>
+                <span>{testResult.error}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 pt-1">
+        <button
+          type="button"
+          onClick={handleTest}
+          disabled={isTesting || !config.serverUrl}
+          className="btn-secondary-light py-2 px-4 text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+        >
+          {isTesting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Activity className="h-3.5 w-3.5 text-emerald-primary" />}
+          {isTesting ? 'Testing...' : 'Test Connection'}
+        </button>
+
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={isSaving}
+          className="btn-emerald-primary py-2 px-4 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+        >
+          <Save className="h-3.5 w-3.5" />
+          {justSaved ? 'Saved' : 'Save Isaac Sim Settings'}
+        </button>
+      </div>
     </div>
   );
 }
