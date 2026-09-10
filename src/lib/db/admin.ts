@@ -1,7 +1,47 @@
+import { eq } from 'drizzle-orm';
 import { getDb, DEMO_USER_ID } from './client';
 import * as schema from '../schema';
-import { seedProviderModels } from './provider-models';
 
+/**
+ * Wipes only the calling user's own workspace data — every table with a
+ * `userId` FK to `users.id` that the app actually writes to (`assets`,
+ * `experiments`, `simulationProfiles`, `agentChatMessages` are defined in
+ * schema.ts but nothing currently writes to them — nothing to reset there
+ * yet). Deliberately does NOT touch the `users` row itself or any other
+ * user's data — this is what backs the app's "Reset DB" button now that
+ * real, multi-tenant WorkOS accounts exist.
+ * (`resetDatabaseAndSeedDemoUser` below is the old single-tenant version,
+ * kept only for local seed scripts that run outside any request/session
+ * context.)
+ */
+export async function resetUserWorkspaceData(userId: string) {
+  const db = getDb();
+  if (!db) {
+    return { success: true, message: 'Local workspace reset (no database configured).' };
+  }
+
+  try {
+    // mcpRobots.projectId is onDelete:'set null' (not cascade) and
+    // workspaceRegistrations/policyProposals aren't reachable by deleting
+    // projects alone either — each needs its own explicit userId-scoped
+    // delete, not just the projects/robots/testRuns cascade chain.
+    await Promise.all([
+      db.delete(schema.projects).where(eq(schema.projects.userId, userId)),
+      db.delete(schema.robots).where(eq(schema.robots.userId, userId)),
+      db.delete(schema.testRuns).where(eq(schema.testRuns.userId, userId)),
+      db.delete(schema.mcpRobots).where(eq(schema.mcpRobots.userId, userId)),
+      db.delete(schema.workspaceRegistrations).where(eq(schema.workspaceRegistrations.userId, userId)),
+      db.delete(schema.policyProposals).where(eq(schema.policyProposals.userId, userId)),
+    ]);
+
+    return { success: true, message: 'Your workspace data has been reset.' };
+  } catch (err: any) {
+    console.error(`[WORKSPACE RESET ERROR] ${err.message}`);
+    return { success: false, message: `Workspace reset error: ${err.message}` };
+  }
+}
+
+/** @deprecated Single-tenant demo-data reset for local dev/seed scripts only — do not call from any app route. */
 export async function resetDatabaseAndSeedDemoUser() {
   try {
     const db = getDb();
@@ -11,11 +51,9 @@ export async function resetDatabaseAndSeedDemoUser() {
     }
 
     // Every child table's FK to users is onDelete: 'cascade' (robots,
-    // agent_settings, user_api_keys, projects — which itself cascades to
-    // project_repositories), and there's only ever this one demo user, so
-    // deleting it is a single round-trip that wipes everything scoped to
-    // it. (provider_models isn't user-scoped and is deliberately untouched
-    // here — reseeded below instead.)
+    // projects — which itself cascades to project_repositories), and
+    // there's only ever this one demo user, so deleting it is a single
+    // round-trip that wipes everything scoped to it.
     await db.delete(schema.users);
 
     await db.insert(schema.users).values({
@@ -26,13 +64,11 @@ export async function resetDatabaseAndSeedDemoUser() {
       avatarUrl: 'https://github.com/Ekumen-OS.png'
     });
 
-    // provider_models isn't user-scoped and isn't wiped above, but a
-    // brand-new database has never had it seeded — this upsert is a no-op
-    // once it's already populated, so it's safe to run on every reset.
-    await seedProviderModels();
+    const { seedRoboticsFleetAndEnvironments } = await import('./seed-data');
+    await seedRoboticsFleetAndEnvironments(DEMO_USER_ID);
 
-    console.log('[NEON DB] Database reset complete! Clean demo user inserted.');
-    return { success: true, message: 'Neon PostgreSQL database reset cleanly with demo user.' };
+    console.log('[NEON DB] Database reset complete! Clean demo user & robotics fleet seeded.');
+    return { success: true, message: 'Neon PostgreSQL database reset cleanly with demo user, TurtleBot 4/3, and Andino fleet.' };
   } catch (err: any) {
     console.error(`[NEON DB RESET ERROR] ${err.message}`);
     return { success: false, message: `Database reset error: ${err.message}` };

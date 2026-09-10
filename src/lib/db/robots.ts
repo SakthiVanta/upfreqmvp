@@ -1,4 +1,4 @@
-import { getDb, DEMO_USER_ID } from './client';
+import { getDb } from './client';
 import * as schema from '../schema';
 import { RobotProfile } from '../robot-profile';
 
@@ -9,7 +9,7 @@ import { RobotProfile } from '../robot-profile';
  * database is an actual source of truth, not write-only telemetry.
  * Re-auditing the same repo for the same user updates the existing row.
  */
-export async function saveRobotProfile(profile: RobotProfile, projectId?: string | null): Promise<{ success: boolean; id?: string }> {
+export async function saveRobotProfile(userId: string, profile: RobotProfile, projectId?: string | null): Promise<{ success: boolean; id?: string }> {
   try {
     const db = getDb();
     if (!db) {
@@ -24,7 +24,7 @@ export async function saveRobotProfile(profile: RobotProfile, projectId?: string
       .insert(schema.robots)
       .values({
         id,
-        userId: DEMO_USER_ID,
+        userId,
         projectId: projectId || null,
         repoUrl: profile.repoUrl,
         repoName,

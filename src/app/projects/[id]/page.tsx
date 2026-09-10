@@ -1,15 +1,18 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Plus, Trash2, GitFork, X, Sparkles,
-  Loader2, AlertTriangle, Bot, ChevronDown, ChevronUp, Check, Pencil
+  ArrowLeft, Trash2, X, Loader2, Bot, AlertTriangle, Pencil, Terminal,
+  ChevronDown, ChevronUp, Cpu, Monitor, Clock,
 } from 'lucide-react';
 import { fetchProject, updateProject as apiUpdateProject, deleteProject as apiDeleteProject, UserProject } from '@/lib/user-projects';
+import { fetchRobots, McpRobot } from '@/lib/user-robots';
+import { fetchWorkspaces, WorkspaceRegistration } from '@/lib/user-workspaces';
 import { CodebaseReview } from '@/components/dashboard/codebase-review';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toast';
+import { ClaudeMcpModal } from '@/components/mcp/claude-mcp-modal';
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -19,14 +22,9 @@ export default function ProjectDetailPage() {
   const projectId = params.id as string;
 
   const [project, setProject] = useState<UserProject | null | undefined>(undefined);
-  const [repoUrlInput, setRepoUrlInput] = useState('');
-  // Collapsed by default once a project is already audited — repo setup is
-  // secondary at that point and shouldn't compete with the Codebase Review.
-  const [repoSectionOpen, setRepoSectionOpen] = useState(false);
-
-  const [isAuditing, setIsAuditing] = useState(false);
-  const [streamLogs, setStreamLogs] = useState<string[]>([]);
-  const [streamError, setStreamError] = useState<string | null>(null);
+  const [robots, setRobots] = useState<McpRobot[]>([]);
+  const [workspaces, setWorkspaces] = useState<WorkspaceRegistration[]>([]);
+  const [showMcpModal, setShowMcpModal] = useState(false);
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editName, setEditName] = useState('');
@@ -37,25 +35,11 @@ export default function ProjectDetailPage() {
     fetchProject(projectId).then(found => {
       if (cancelled) return;
       setProject(found);
-      setRepoSectionOpen(!found?.isAudited);
     });
+    fetchRobots(projectId).then(r => { if (!cancelled) setRobots(r); }).catch(() => {});
+    fetchWorkspaces(projectId).then(w => { if (!cancelled) setWorkspaces(w); }).catch(() => {});
     return () => { cancelled = true; };
   }, [projectId]);
-
-  const handleAddRepo = async () => {
-    const url = repoUrlInput.trim();
-    if (!url || !project) return;
-    if (project.repos.some(r => r.url === url)) return;
-
-    setRepoUrlInput('');
-    const updated = await apiUpdateProject(projectId, { addRepo: { url } });
-    if (updated) setProject(updated);
-  };
-
-  const handleRemoveRepo = async (repoId: string) => {
-    const updated = await apiUpdateProject(projectId, { removeRepoId: repoId });
-    if (updated) setProject(updated);
-  };
 
   const openEditModal = () => {
     if (!project) return;
@@ -86,74 +70,6 @@ export default function ProjectDetailPage() {
     }
   };
 
-  // Run the real agentic /api/analyze audit for this project, streaming live
-  // logs into the page and writing the resulting RobotProfile back onto it
-  // once complete — reads the freshest project data from storage directly
-  // rather than a closed-over React variable, so a slow audit always saves
-  // against current state even if something else changed it meanwhile.
-  const handleRunAudit = async () => {
-    if (!project || project.repos.length === 0 || isAuditing) return;
-
-    setIsAuditing(true);
-    setStreamLogs([]);
-    setStreamError(null);
-
-    const targetUrls = project.repos.map(r => r.url);
-    const primaryUrl = targetUrls[0];
-
-    let parsedResult: any = null;
-
-    try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repoUrl: primaryUrl, multiRepoUrls: targetUrls, projectId })
-      });
-
-      if (!res.ok || !res.body) {
-        throw new Error('Audit API failed');
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          try {
-            const data = JSON.parse(line.slice(6));
-            if (data.log) setStreamLogs(prev => [...prev, data.log]);
-            if (data.stage === 'ERROR') {
-              setStreamError(data.message || 'ROS validation failed.');
-            }
-            if (data.stage === 'COMPLETE' && data.result) {
-              parsedResult = data.result;
-            }
-          } catch (e) {}
-        }
-      }
-    } catch (e) {
-      setStreamError('Network error reaching the analysis stream.');
-    }
-
-    if (parsedResult) {
-      // The server already persisted this exact profile (linked to this
-      // project) before streaming it back — no second write needed here,
-      // just reflect it in local state.
-      setProject(prev => (prev ? { ...prev, isAudited: true, auditedRobotProfile: parsedResult } : prev));
-    }
-
-    setIsAuditing(false);
-  };
-
   if (project === undefined) {
     return (
       <div className="minimal-card p-12 text-center">
@@ -178,6 +94,9 @@ export default function ProjectDetailPage() {
     );
   }
 
+  const hasLegacyAudit = project.isAudited && !!project.auditedRobotProfile;
+  const hasAnyRobots = hasLegacyAudit || robots.length > 0;
+
   return (
     <div className="space-y-6 font-sans pb-16 w-full">
 
@@ -195,7 +114,7 @@ export default function ProjectDetailPage() {
           <p className="text-sm text-sand-500 mt-1">{project.description}</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {project.isAudited && project.auditedRobotProfile && (
+          {hasLegacyAudit && project.auditedRobotProfile && (
             project.auditedRobotProfile.usedAgenticAnalysis ? (
               <span className="px-2.5 py-1 rounded-full bg-emerald-light text-emerald-text border border-emerald-border text-xs font-bold flex items-center gap-1.5">
                 <Bot className="h-3.5 w-3.5" /> AI Agent
@@ -258,46 +177,6 @@ export default function ProjectDetailPage() {
                   className="w-full px-3.5 py-2.5 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 focus:outline-none focus:border-emerald-primary"
                 />
               </div>
-
-              <div>
-                <label className="block text-sand-300 font-bold mb-1">Repositories:</label>
-                <div className="flex flex-col sm:flex-row gap-2 mb-2">
-                  <input
-                    type="url"
-                    value={repoUrlInput}
-                    onChange={(e) => setRepoUrlInput(e.target.value)}
-                    placeholder="https://github.com/org/repo"
-                    className="flex-1 px-3.5 py-2 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 focus:outline-none focus:border-emerald-primary min-w-0"
-                  />
-                  <button
-                    onClick={handleAddRepo}
-                    disabled={!repoUrlInput.trim()}
-                    className="px-4 py-2 bg-sand-800 hover:bg-sand-700 text-sand-50 rounded-lg font-bold shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                    title={repoUrlInput.trim() ? undefined : 'Enter a repository URL first'}
-                  >
-                    Add
-                  </button>
-                </div>
-
-                {project.repos.length > 0 ? (
-                  <div className="space-y-2">
-                    {project.repos.map((r) => (
-                      <div key={r.id} className="flex items-center justify-between p-2.5 bg-sand-950 rounded-lg border border-dashed border-sand-700">
-                        <span className="font-bold text-sand-100 truncate">{r.name}</span>
-                        <button
-                          onClick={() => handleRemoveRepo(r.id)}
-                          className="p-1 text-sand-500 hover:text-rose-400 shrink-0 cursor-pointer"
-                          title="Remove Repo"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sand-600 italic">No repositories attached yet.</p>
-                )}
-              </div>
             </div>
 
             <div className="flex justify-end gap-2 border-t border-sand-800 p-4 sm:p-5 shrink-0">
@@ -318,245 +197,126 @@ export default function ProjectDetailPage() {
         </div>
       )}
 
-      {/* The page's single dominant action always matches what the data
-          needs next: an unaudited project has nothing worth showing yet, so
-          "Run AI Audit" IS the page — one hero, not a small status card plus
-          a separate collapsed accordion competing for attention. Once
-          audited, the Codebase Review becomes primary and repo setup drops
-          to a secondary, collapsed-by-default accordion below it. */}
-      {project.isAudited && project.auditedRobotProfile ? (
-        <>
-          <div className="minimal-card p-5 sm:p-6">
-            <CodebaseReview
-              robot={project.auditedRobotProfile}
-              onUpdate={(updated) => {
-                setProject(prev => (prev ? { ...prev, auditedRobotProfile: updated } : prev));
-                apiUpdateProject(projectId, { auditedRobotProfile: updated }).catch(() => {});
-              }}
-            />
-          </div>
-
-          <div className="minimal-card overflow-hidden text-xs">
-            <button
-              onClick={() => setRepoSectionOpen(o => !o)}
-              className="w-full flex items-center justify-between gap-3 p-5 sm:px-6 cursor-pointer"
-            >
-              <span className="text-[11px] font-bold text-sand-500 uppercase tracking-wider">
-                Repository Setup {project.repos.length > 0 && `(${project.repos.length})`}
-              </span>
-              {repoSectionOpen ? <ChevronUp className="h-4 w-4 text-sand-500" /> : <ChevronDown className="h-4 w-4 text-sand-500" />}
-            </button>
-
-            {repoSectionOpen && (
-              <div className="px-5 sm:px-6 pb-5 sm:pb-6 space-y-5 animate-in fade-in slide-in-from-top-2">
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="url"
-                    value={repoUrlInput}
-                    onChange={(e) => setRepoUrlInput(e.target.value)}
-                    placeholder="https://github.com/org/sub-repo"
-                    className="flex-1 px-3.5 py-2 rounded-xl border border-sand-700 bg-sand-950 text-sand-50 focus:outline-none focus:border-emerald-primary min-w-0"
-                  />
-                  <button
-                    onClick={handleAddRepo}
-                    disabled={!repoUrlInput.trim()}
-                    className="px-4 py-2 bg-sand-800 hover:bg-sand-700 text-sand-50 rounded-xl font-bold flex items-center justify-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                    title={repoUrlInput.trim() ? undefined : 'Enter a repository URL first'}
-                  >
-                    <Plus className="h-4 w-4 text-emerald-primary" />
-                    Add Sub-Repo
-                  </button>
-                </div>
-
-                {project.repos.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {project.repos.map((r) => (
-                      <div key={r.id} className="flex items-center justify-between p-3 bg-sand-950 rounded-xl border border-dashed border-sand-700">
-                        <div className="flex items-center gap-2 truncate">
-                          <GitFork className="h-3.5 w-3.5 text-emerald-primary shrink-0" />
-                          <span className="font-bold text-sand-100 truncate">{r.name}</span>
-                        </div>
-                        <button
-                          onClick={() => handleRemoveRepo(r.id)}
-                          className="p-1 text-sand-500 hover:text-rose-400 shrink-0 cursor-pointer"
-                          title="Remove Sub-Repo"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sand-600 italic">No sub-repositories attached to this project yet — add one above, then run the AI audit.</p>
-                )}
-
-                {project.repos.length > 0 && (
-                  <button
-                    onClick={handleRunAudit}
-                    disabled={isAuditing}
-                    className="btn-emerald-primary py-2.5 px-4 text-xs font-bold flex items-center gap-2 cursor-pointer disabled:opacity-60"
-                  >
-                    {isAuditing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                    {isAuditing ? 'Auditing...' : 'Re-run AI Audit'}
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </>
-      ) : (
-        <RunAuditHero
-          repos={project.repos}
-          repoUrlInput={repoUrlInput}
-          setRepoUrlInput={setRepoUrlInput}
-          onAddRepo={handleAddRepo}
-          onRunAudit={handleRunAudit}
-          isAuditing={isAuditing}
-        />
+      {/* Robots for this project are created and kept up to date via Claude
+          Code / Cursor over MCP, not from this page — this just reflects
+          whatever's been saved via upfreq.robot.save_robot (plus any legacy
+          audited profile from before the GitHub-audit flow was retired). */}
+      {hasLegacyAudit && project.auditedRobotProfile && (
+        <div className="minimal-card p-5 sm:p-6">
+          <CodebaseReview
+            robot={project.auditedRobotProfile}
+            onUpdate={(updated) => {
+              setProject(prev => (prev ? { ...prev, auditedRobotProfile: updated } : prev));
+              apiUpdateProject(projectId, { auditedRobotProfile: updated }).catch(() => {});
+            }}
+          />
+        </div>
       )}
 
-      {isAuditing && <AuditProgressModal repoName={project.name} logs={streamLogs} />}
+      {robots.length > 0 && <McpRobotsCard robots={robots} />}
 
-      {!isAuditing && streamError && (
-        <div className="bg-rose-50 border border-rose-200 p-3 rounded-lg text-rose-700 text-xs">
-          <span className="font-bold">AUDIT NOTICE: </span>{streamError}
+      {!hasAnyRobots && (
+        <div className="minimal-card p-8 sm:p-12 space-y-6 text-center">
+          <div className="space-y-2 max-w-lg mx-auto">
+            <h2 className="font-display font-normal text-sand-500 tracking-tight text-xl sm:text-2xl">
+              No Robots Yet
+            </h2>
+            <p className="text-sm text-sand-500">
+              Robots for this project are created and kept up to date via Claude Code or Cursor, connected over MCP — not from this page.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowMcpModal(true)}
+            className="btn-emerald-primary py-3 px-6 text-sm font-bold flex items-center gap-2 cursor-pointer mx-auto"
+          >
+            <Terminal className="h-4 w-4" />
+            Connect Claude Code (MCP)
+          </button>
         </div>
+      )}
+
+      {workspaces.length > 0 && <WorkspacesCard workspaces={workspaces} />}
+
+      {showMcpModal && (
+        <ClaudeMcpModal onClose={() => setShowMcpModal(false)} />
       )}
 
     </div>
   );
 }
 
-// The dominant, decluttered call-to-action for a project with no audit yet.
-// This page is for one thing: viewing the audit, or running it. Repo setup
-// is a one-time prerequisite, not something to keep managing here — once
-// there's at least one repo, it's just named in passing and the only real
-// action left on screen is the audit button.
-function RunAuditHero({
-  repos,
-  repoUrlInput,
-  setRepoUrlInput,
-  onAddRepo,
-  onRunAudit,
-  isAuditing,
-}: {
-  repos: { id: string; url: string; name: string }[];
-  repoUrlInput: string;
-  setRepoUrlInput: (v: string) => void;
-  onAddRepo: () => void;
-  onRunAudit: () => void;
-  isAuditing: boolean;
-}) {
-  const hasRepos = repos.length > 0;
+function McpRobotsCard({ robots }: { robots: McpRobot[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
-    <div className="minimal-card p-8 sm:p-12 space-y-6">
-      <div className="text-center space-y-2 max-w-lg mx-auto">
-        <h2 className={`font-display font-normal text-sand-500 tracking-tight ${hasRepos ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl'}`}>
-          No Audit Yet
-        </h2>
-        {hasRepos ? (
-          <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs text-sand-500">
-            <span>Repos:</span>
-            {repos.map((r) => (
-              <span key={r.id} className="px-2.5 py-1 rounded-lg border border-dashed border-sand-700 text-sand-300">
-                {r.name}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-sand-500">
-            Attach this robot&apos;s GitHub repositories, then run the audit to see which robots the codebase defines and its autonomy feature checklist.
-          </p>
-        )}
-      </div>
-
-      {!hasRepos && (
-        <div className="max-w-xl mx-auto w-full space-y-2 text-xs">
-          <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="url"
-              value={repoUrlInput}
-              onChange={(e) => setRepoUrlInput(e.target.value)}
-              placeholder="https://github.com/org/repo"
-              className="flex-1 px-3.5 py-2.5 rounded-xl border border-sand-700 bg-sand-950 text-sand-50 focus:outline-none focus:border-emerald-primary min-w-0"
-            />
-            <button
-              onClick={onAddRepo}
-              disabled={!repoUrlInput.trim()}
-              className="px-4 py-2.5 bg-sand-800 hover:bg-sand-700 text-sand-50 rounded-xl font-bold flex items-center justify-center shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              title={repoUrlInput.trim() ? undefined : 'Enter a repository URL first'}
-            >
-              Add Repo
-            </button>
-          </div>
-          <p className="text-sand-600 italic text-center">No repositories attached yet — add one above to enable the audit.</p>
-        </div>
-      )}
-
-      <div className="flex flex-col items-center gap-2">
-        <button
-          onClick={onRunAudit}
-          disabled={!hasRepos || isAuditing}
-          className="btn-emerald-primary py-3.5 px-8 text-sm font-bold flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {isAuditing && <Loader2 className="h-4 w-4 animate-spin" />}
-          {isAuditing ? 'Auditing...' : 'Run AI Audit'}
-        </button>
-        {!hasRepos && (
-          <span className="text-[11px] text-sand-600">Add a repository above to enable the audit</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// A live stepper of exactly what the backend audit pipeline is doing —
-// every entry here is a real `log` line as it arrives over the /api/analyze
-// SSE stream (GitHub API calls, package/URDF parsing, and the Gemini
-// agent's own real tool calls — which file it's reading, right down to the
-// path). Nothing here is a simulated/generic "thinking" placeholder: if the
-// backend hasn't sent an event yet, the step just isn't shown yet.
-function AuditProgressModal({ repoName, logs }: { repoName: string; logs: string[] }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [logs.length]);
-
-  return (
-    <div className="fixed inset-0 z-50 bg-sand-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-      <div className="minimal-card w-full max-w-lg max-h-[85vh] p-6 flex flex-col space-y-4 animate-in fade-in slide-in-from-top-4">
-        <div className="flex items-center gap-2.5 shrink-0">
-          <Loader2 className="h-5 w-5 animate-spin text-emerald-primary shrink-0" />
-          <h3 className="text-sm font-bold text-sand-50 truncate">Auditing {repoName}</h3>
-        </div>
-
-        <div ref={scrollRef} className="overflow-y-auto space-y-2.5 text-xs pr-1">
-          {logs.length === 0 && (
-            <div className="flex items-start gap-2.5 text-sand-500">
-              <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0 mt-0.5" />
-              <span>Connecting to the audit pipeline...</span>
-            </div>
-          )}
-          {logs.map((log, idx) => {
-            const isLast = idx === logs.length - 1;
-            return (
-              <div
-                key={idx}
-                className={`flex items-start gap-2.5 leading-relaxed ${isLast ? 'text-sand-50 font-semibold' : 'text-sand-500'}`}
+    <div className="minimal-card p-5 sm:p-6 space-y-4">
+      <h3 className="text-[11px] font-bold text-sand-500 uppercase tracking-wider flex items-center gap-1.5">
+        <Bot className="h-3.5 w-3.5" /> Robots ({robots.length})
+      </h3>
+      <div className="space-y-2.5">
+        {robots.map((r) => {
+          const expanded = expandedId === r.id;
+          return (
+            <div key={r.id} className="border border-sand-800 bg-sand-950 rounded-lg overflow-hidden text-xs">
+              <button
+                onClick={() => setExpandedId(expanded ? null : r.id)}
+                className="w-full flex items-center justify-between gap-3 p-3.5 text-left cursor-pointer"
               >
-                {isLast ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0 mt-0.5 text-emerald-primary" />
-                ) : (
-                  <Check className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-primary" />
-                )}
-                <span className="wrap-break-word">{log}</span>
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-sand-50">{r.name}</span>
+                    {r.driveType && (
+                      <span className="px-1.5 py-0.5 bg-sand-900 border border-sand-700 text-sand-400 font-mono text-[10px] rounded">
+                        {r.driveType}
+                      </span>
+                    )}
+                    {r.chassis.massKg != null && (
+                      <span className="text-sand-500 font-mono text-[10px]">{r.chassis.massKg}kg</span>
+                    )}
+                  </div>
+                  {r.sensors.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {r.sensors.map((s) => (
+                        <span key={s} className="px-1.5 py-0.5 bg-emerald-950/40 border border-emerald-900 text-emerald-400 text-[10px] rounded">{s}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {r.urdfXacroXml && (expanded ? <ChevronUp className="h-4 w-4 text-sand-500 shrink-0" /> : <ChevronDown className="h-4 w-4 text-sand-500 shrink-0" />)}
+              </button>
+              {expanded && r.urdfXacroXml && (
+                <pre className="p-3.5 pt-0 text-[10px] text-sand-400 font-mono overflow-x-auto whitespace-pre-wrap break-all">{r.urdfXacroXml}</pre>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function WorkspacesCard({ workspaces }: { workspaces: WorkspaceRegistration[] }) {
+  return (
+    <div className="minimal-card p-5 sm:p-6 space-y-4">
+      <h3 className="text-[11px] font-bold text-sand-500 uppercase tracking-wider flex items-center gap-1.5">
+        <Monitor className="h-3.5 w-3.5" /> Local Workspaces ({workspaces.length})
+      </h3>
+      <div className="space-y-2">
+        {workspaces.map((w) => (
+          <div key={w.id} className="flex items-center justify-between gap-3 p-3 bg-sand-950 border border-sand-800 rounded-lg text-xs">
+            <div className="min-w-0 space-y-0.5">
+              <div className="flex items-center gap-1.5 font-mono text-sand-300 truncate">
+                <Cpu className="h-3 w-3 text-sand-500 shrink-0" />
+                {w.machineId.slice(0, 8)}
               </div>
-            );
-          })}
-        </div>
+              <div className="font-mono text-sand-500 truncate" title={w.localPath}>{w.localPath}</div>
+            </div>
+            <div className="flex items-center gap-1.5 text-sand-500 shrink-0 whitespace-nowrap">
+              <Clock className="h-3 w-3" />
+              {new Date(w.lastSeenAt).toLocaleDateString()}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

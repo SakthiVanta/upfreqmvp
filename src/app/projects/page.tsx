@@ -3,17 +3,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  FolderPlus, Plus, Trash2, GitFork, X, Globe,
-  ChevronLeft, ChevronRight, Check, Search, Loader2
+  FolderPlus, Plus, Trash2, X, Globe,
+  ChevronLeft, ChevronRight, Check, Search, Loader2, Terminal
 } from 'lucide-react';
-import { fetchProjects, createProject, deleteProject, UserProject, ProjectRepo } from '@/lib/user-projects';
+import { fetchProjects, createProject, deleteProject, UserProject } from '@/lib/user-projects';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toast';
 import { ModalShell } from '@/components/ui/modal-shell';
+import { ClaudeMcpModal } from '@/components/mcp/claude-mcp-modal';
 
 const PAGE_SIZE = 8;
 
-const CREATE_STEPS = ['Details', 'Repositories', 'Review'] as const;
+const CREATE_STEPS = ['Details', 'Review'] as const;
 
 export default function ProjectsPage() {
   const router = useRouter();
@@ -30,12 +31,11 @@ export default function ProjectsPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showMcpModal, setShowMcpModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [createStep, setCreateStep] = useState(0);
   const [nameInput, setNameInput] = useState('');
   const [descInput, setDescInput] = useState('');
-  const [stepRepoUrl, setStepRepoUrl] = useState('');
-  const [stepRepos, setStepRepos] = useState<ProjectRepo[]>([]);
 
   useEffect(() => {
     fetchProjects()
@@ -49,16 +49,6 @@ export default function ProjectsPage() {
     setCreateStep(0);
     setNameInput('');
     setDescInput('');
-    setStepRepoUrl('');
-    setStepRepos([]);
-  };
-
-  const handleAddStepRepo = () => {
-    const url = stepRepoUrl.trim();
-    if (!url || stepRepos.some(r => r.url === url)) return;
-    const repoName = url.split('/').pop() || 'robotics_repo';
-    setStepRepos(prev => [...prev, { id: `repo_${Date.now()}`, url, name: repoName }]);
-    setStepRepoUrl('');
   };
 
   const handleFinishCreate = async () => {
@@ -70,7 +60,6 @@ export default function ProjectsPage() {
       const newProj = await createProject({
         name,
         description: descInput.trim() || "This robot's autonomy codebase",
-        repos: stepRepos.map(r => ({ url: r.url, name: r.name })),
       });
       setProjects(prev => [newProj, ...prev]);
       resetCreateFlow();
@@ -156,6 +145,15 @@ export default function ProjectsPage() {
           </div>
 
           <button
+            onClick={() => setShowMcpModal(true)}
+            className="order-1 sm:order-2 btn-secondary-light py-2.5 px-3.5 text-xs font-bold flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+            title="Connect Claude Code CLI or Cursor via Model Context Protocol"
+          >
+            <Terminal className="h-3.5 w-3.5 text-emerald-primary" />
+            Connect Claude Code (MCP)
+          </button>
+
+          <button
             onClick={() => setShowCreateModal(true)}
             className="order-1 sm:order-2 btn-emerald-primary py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 shrink-0 cursor-pointer"
           >
@@ -164,6 +162,11 @@ export default function ProjectsPage() {
           </button>
         </div>
       </div>
+
+      {/* Claude Code & Cursor MCP Connection Modal */}
+      {showMcpModal && (
+        <ClaudeMcpModal onClose={() => setShowMcpModal(false)} />
+      )}
 
       {/* Create Project Stepper Modal */}
       {showCreateModal && (
@@ -221,51 +224,8 @@ export default function ProjectsPage() {
               </div>
             )}
 
-            {/* Step 2: Repositories */}
+            {/* Step 2: Review */}
             {createStep === 1 && (
-              <div className="space-y-4">
-                <p className="text-sand-500">Attach one or more GitHub repositories now, or skip and add them later.</p>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="url"
-                    value={stepRepoUrl}
-                    onChange={(e) => setStepRepoUrl(e.target.value)}
-                    placeholder="https://github.com/org/repo"
-                    className="flex-1 px-3.5 py-2.5 rounded-lg border border-sand-700 bg-sand-950 text-sand-50 focus:outline-none focus:border-emerald-primary min-w-0"
-                  />
-                  <button
-                    onClick={handleAddStepRepo}
-                    disabled={!stepRepoUrl.trim()}
-                    className="px-4 py-2.5 bg-sand-800 hover:bg-sand-700 text-sand-50 rounded-lg font-bold flex items-center justify-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                    title={stepRepoUrl.trim() ? undefined : 'Enter a repository URL first'}
-                  >
-                    <Plus className="h-4 w-4 text-emerald-primary" />
-                    Add
-                  </button>
-                </div>
-                {stepRepos.length > 0 && (
-                  <div className="space-y-2">
-                    {stepRepos.map((r) => (
-                      <div key={r.id} className="flex items-center justify-between p-2.5 bg-sand-950 rounded-lg border border-sand-800">
-                        <div className="flex items-center gap-2 truncate">
-                          <GitFork className="h-3.5 w-3.5 text-emerald-primary shrink-0" />
-                          <span className="font-bold text-sand-100 truncate">{r.name}</span>
-                        </div>
-                        <button
-                          onClick={() => setStepRepos(prev => prev.filter(x => x.id !== r.id))}
-                          className="p-1 text-sand-500 hover:text-rose-400 shrink-0 cursor-pointer"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Step 3: Review */}
-            {createStep === 2 && (
               <div className="space-y-3">
                 <div className="p-3.5 bg-sand-950 rounded-lg border border-sand-800 space-y-2">
                   <div className="flex justify-between">
@@ -276,12 +236,8 @@ export default function ProjectsPage() {
                     <span className="text-sand-500">Description:</span>
                     <span className="font-bold text-sand-100 text-right">{descInput || "This robot's autonomy codebase"}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sand-500">Repositories:</span>
-                    <span className="font-bold text-sand-100">{stepRepos.length}</span>
-                  </div>
                 </div>
-                <p className="text-sand-500">You can run the AI audit right after creating the project.</p>
+                <p className="text-sand-500">Connect Claude Code or Cursor via MCP to start creating robots for this project.</p>
               </div>
             )}
 
@@ -411,7 +367,7 @@ export default function ProjectsPage() {
           <div className="space-y-1">
             <h3 className="text-base font-bold text-sand-50">No Projects Created Yet</h3>
             <p className="text-xs text-sand-500 max-w-md mx-auto">
-              Group each robot&apos;s repositories into a project to run an AI audit.
+              Create a project, then connect Claude Code or Cursor via MCP to start building robots for it.
             </p>
           </div>
         </div>

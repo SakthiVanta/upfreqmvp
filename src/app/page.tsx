@@ -1,31 +1,14 @@
-'use client';
-
-import React, { useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth-context';
-// import { GithubIcon } from '@/components/ui/github-icon'; — unused while GitHub OAuth is commented out below
-import { Loader2 } from 'lucide-react';
+import { redirect } from 'next/navigation';
+import { withAuth } from '@workos-inc/authkit-nextjs';
 
-export default function HomePage() {
-  const router = useRouter();
-  const { isAuthenticated } = useAuth();
+export default async function HomePage() {
+  const { user } = await withAuth();
 
   // Projects (each representing one robot's autonomy codebase) is the one
   // real workspace — an authenticated visit to the marketing root just
   // forwards there instead of duplicating the ingest/audit UI here too.
-  useEffect(() => {
-    if (isAuthenticated) router.replace('/projects');
-  }, [isAuthenticated, router]);
-
-  if (isAuthenticated) {
-    return (
-      <div className="flex items-center justify-center py-24 text-sand-500 text-xs gap-2">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Opening Robot Projects...
-      </div>
-    );
-  }
+  if (user) redirect('/projects');
 
   // Minimal marketing root for unauthenticated visitors: brand, pitch, sign in.
   return (
@@ -60,21 +43,11 @@ export default function HomePage() {
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4 pt-2 text-xs animate-in fade-in slide-in-from-bottom-4 delay-150">
-            {/* GitHub OAuth commented out for now — not needed yet.
-            <button
-              onClick={() => loginWithGithub()}
-              className="btn-robotics-primary py-3.5 px-8 text-sm font-bold flex items-center gap-2.5 cursor-pointer"
-            >
-              <GithubIcon className="h-4.5 w-4.5 fill-current" />
-              Connect GitHub OAuth
-            </button>
-            */}
-
             <Link
               href="/login"
               className="btn-robotics-primary py-3.5 px-8 text-sm font-bold"
             >
-              Sign In with Password
+              Sign In
             </Link>
           </div>
         </div>
