@@ -3,26 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import {
   Terminal,
-  Copy,
-  Check,
-  CheckCircle2,
-  AlertTriangle,
   Loader2,
   RefreshCw,
-  Sparkles,
   Bot,
   Layers,
   FolderOpen,
   FlaskConical,
-  Radio,
 } from 'lucide-react';
-import { useToast } from '@/components/ui/toast';
+import { McpConnectOptions } from '@/components/mcp/mcp-connect-options';
 
 export function McpSettingsTab() {
-  const toast = useToast();
   const [origin, setOrigin] = useState('http://localhost:3000');
-  const [copiedClaude, setCopiedClaude] = useState(false);
-  const [copiedCursor, setCopiedCursor] = useState(false);
   const [isPinging, setIsPinging] = useState(false);
   const [pingResult, setPingResult] = useState<{ status: 'healthy' | 'error'; latencyMs: number; toolCount: number } | null>(null);
 
@@ -61,33 +52,6 @@ export function McpSettingsTab() {
     }
   };
 
-  const claudeCommand = `claude mcp add --transport http upfreq ${origin}/api/mcp`;
-  const cursorConfig = JSON.stringify(
-    {
-      mcpServers: {
-        upfreq: {
-          url: `${origin}/api/mcp`,
-        },
-      },
-    },
-    null,
-    2
-  );
-
-  const handleCopyClaude = () => {
-    navigator.clipboard.writeText(claudeCommand);
-    setCopiedClaude(true);
-    toast.success('Copied Claude Code CLI command!');
-    setTimeout(() => setCopiedClaude(false), 2000);
-  };
-
-  const handleCopyCursor = () => {
-    navigator.clipboard.writeText(cursorConfig);
-    setCopiedCursor(true);
-    toast.success('Copied Cursor configuration JSON!');
-    setTimeout(() => setCopiedCursor(false), 2000);
-  };
-
   return (
     <div className="space-y-6 text-xs font-sans">
       {/* Overview Banner */}
@@ -101,8 +65,8 @@ export function McpSettingsTab() {
               </h3>
             </div>
             <p className="text-sand-400 text-[11px] leading-relaxed">
-              Connect external AI agents (like <strong>Claude Code CLI</strong> or <strong>Cursor</strong>) directly to UpFreq.
-              Claude can create projects, author robot models, compile OpenUSD, and execute Isaac Sim tests from your local terminal.
+              Connect external AI agents (like <strong>Claude Code CLI</strong>, <strong>OpenAI Codex CLI</strong>, or <strong>Cursor</strong>) directly to UpFreq.
+              These agents can create projects, author robot models, compile OpenUSD, and execute Isaac Sim tests from your local terminal.
             </p>
           </div>
 
@@ -151,52 +115,7 @@ export function McpSettingsTab() {
         </div>
       </div>
 
-      {/* Option 1: Claude Code CLI Integration */}
-      <div className="minimal-card p-5 sm:p-6 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-sm text-sand-50">1. Connect Claude Code CLI</span>
-            <span className="px-1.5 py-0.5 bg-emerald-primary text-sand-950 font-bold text-[10px]">Recommended</span>
-          </div>
-          <button
-            onClick={handleCopyClaude}
-            className="py-1.5 px-3 bg-sand-800 hover:bg-sand-700 text-sand-200 border border-sand-700 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
-          >
-            {copiedClaude ? <Check className="h-3.5 w-3.5 text-emerald-primary" /> : <Copy className="h-3.5 w-3.5" />}
-            {copiedClaude ? 'Copied' : 'Copy Command'}
-          </button>
-        </div>
-
-        <p className="text-sand-400 text-[11px]">
-          Run this single command in your project terminal to register UpFreq as an MCP server with Claude Code:
-        </p>
-
-        <div className="p-3.5 bg-sand-950 border border-sand-800 font-mono text-[11px] text-sand-100 flex items-center justify-between select-all">
-          <span>{claudeCommand}</span>
-        </div>
-      </div>
-
-      {/* Option 2: Cursor / VS Code Integration */}
-      <div className="minimal-card p-5 sm:p-6 space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="font-bold text-sm text-sand-50">2. Connect Cursor / VS Code (`.cursor/mcp.json`)</span>
-          <button
-            onClick={handleCopyCursor}
-            className="py-1.5 px-3 bg-sand-800 hover:bg-sand-700 text-sand-200 border border-sand-700 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
-          >
-            {copiedCursor ? <Check className="h-3.5 w-3.5 text-emerald-primary" /> : <Copy className="h-3.5 w-3.5" />}
-            {copiedCursor ? 'Copied' : 'Copy JSON'}
-          </button>
-        </div>
-
-        <p className="text-sand-400 text-[11px]">
-          Add this to your `.cursor/mcp.json` or Claude Desktop `claude_desktop_config.json`:
-        </p>
-
-        <div className="p-3.5 bg-sand-950 border border-sand-800 font-mono text-[11px] text-sand-100 overflow-x-auto whitespace-pre-wrap select-all">
-          {cursorConfig}
-        </div>
-      </div>
+      <McpConnectOptions origin={origin} variant="page" />
 
       {/* Agent-Native Tools Catalog */}
       <div className="minimal-card p-5 sm:p-6 space-y-4">
