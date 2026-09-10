@@ -7,11 +7,13 @@ import { authkitProxy } from '@workos-inc/authkit-nextjs';
 // redirecting unauthenticated visits to the AuthKit hosted sign-in — the
 // replacement for app-layout.tsx's old client-side `isAuthenticated` check.
 //
-// `/api/mcp` and `/.well-known/*` are excluded on purpose: those are the
-// remote MCP resource server, authenticated via a WorkOS-issued Bearer JWT
-// verified in src/lib/auth/mcp-auth.ts, not a browser session cookie. Running
-// this proxy there would incorrectly try to redirect an agent's JSON-RPC POST
-// to an HTML sign-in page instead of returning a 401.
+// `/api/mcp`, `/api/billing/webhook`, and `/.well-known/*` are excluded on
+// purpose: each is called by a non-browser caller with no WorkOS session
+// cookie (an MCP agent's Bearer JWT, verified in src/lib/auth/mcp-auth.ts;
+// Razorpay's own server, verified via X-Razorpay-Signature in
+// src/lib/billing/razorpay.ts). Running this proxy on any of them would
+// incorrectly try to redirect their JSON POST to an HTML sign-in page
+// instead of letting the route's own auth check return a proper response.
 export const proxy = authkitProxy({
   middlewareAuth: {
     enabled: true,
@@ -20,5 +22,5 @@ export const proxy = authkitProxy({
 });
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/mcp|\\.well-known).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/mcp|api/billing/webhook|\\.well-known).*)'],
 };

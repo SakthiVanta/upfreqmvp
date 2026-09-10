@@ -7,6 +7,7 @@
 import { registry } from './registry';
 import { getToolInputJsonSchema } from './mastra-mcp-server';
 import { CANONICAL_REGISTRY_ASSETS } from '@/lib/assets/registry';
+import { checkAndIncrementMcpUsage } from '@/lib/billing/usage';
 
 export interface McpRpcRequest {
   jsonrpc?: string;
@@ -66,6 +67,21 @@ export async function handleMcpRequest(req: McpRpcRequest, userId: string): Prom
       case 'tools/call': {
         const toolName = req.params?.name;
         const args = req.params?.arguments || {};
+
+        // Metered here (only real tool executions count), not on
+        // initialize/tools/list/resources/* — discovery calls aren't
+        // "using" the service the way an actual action execution is.
+        const usage = await checkAndIncrementMcpUsage(userId);
+        if (!usage.allowed) {
+          return {
+            jsonrpc: '2.0',
+            id,
+            error: {
+              code: -32000,
+              message: `Monthly free-tier MCP call limit reached (${usage.callsThisMonth - 1}/${usage.limit} used this month). Upgrade to Pro in UpFreq Settings for unlimited calls.`,
+            },
+          };
+        }
 
         const actionResult = await registry.execute(toolName, args, {
           source: 'mcp',

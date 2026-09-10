@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { getDb, DEMO_USER_ID } from './client';
 import * as schema from '../schema';
+import { deleteStlFromBlob } from '../cad/blob-storage';
 
 /**
  * Wipes only the calling user's own workspace data — every table with a
@@ -21,16 +22,32 @@ export async function resetUserWorkspaceData(userId: string) {
   }
 
   try {
+    // Delete the user's compiled STL blobs from Vercel Blob storage before
+    // dropping their cadParts rows — otherwise those binaries orphan
+    // permanently (Postgres deletion doesn't touch external blob storage),
+    // silently accumulating storage cost for parts nobody can reach anymore.
+    const cadRows = await db
+      .select({ stlUrl: schema.cadParts.stlUrl })
+      .from(schema.cadParts)
+      .where(eq(schema.cadParts.userId, userId));
+    await Promise.all(cadRows.filter(r => r.stlUrl).map(r => deleteStlFromBlob(r.stlUrl!)));
+
     // mcpRobots.projectId is onDelete:'set null' (not cascade) and
-    // workspaceRegistrations/policyProposals aren't reachable by deleting
-    // projects alone either — each needs its own explicit userId-scoped
-    // delete, not just the projects/robots/testRuns cascade chain.
+    // workspaceRegistrations/bridgeEndpoints/cadParts/customTestCases/
+    // policyProposals aren't reachable by deleting projects alone either —
+    // each needs its own explicit userId-scoped delete, not just the
+    // projects/robots/testRuns cascade chain. payments is deliberately
+    // excluded — it's a financial audit trail, never wiped by a workspace
+    // reset (see its comment in schema.ts).
     await Promise.all([
       db.delete(schema.projects).where(eq(schema.projects.userId, userId)),
       db.delete(schema.robots).where(eq(schema.robots.userId, userId)),
       db.delete(schema.testRuns).where(eq(schema.testRuns.userId, userId)),
       db.delete(schema.mcpRobots).where(eq(schema.mcpRobots.userId, userId)),
       db.delete(schema.workspaceRegistrations).where(eq(schema.workspaceRegistrations.userId, userId)),
+      db.delete(schema.bridgeEndpoints).where(eq(schema.bridgeEndpoints.userId, userId)),
+      db.delete(schema.cadParts).where(eq(schema.cadParts.userId, userId)),
+      db.delete(schema.customTestCases).where(eq(schema.customTestCases.userId, userId)),
       db.delete(schema.policyProposals).where(eq(schema.policyProposals.userId, userId)),
     ]);
 

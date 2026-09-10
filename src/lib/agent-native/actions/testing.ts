@@ -1,93 +1,16 @@
 import { z } from 'zod';
-import { lookup as dnsLookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
 import { AgentNativeAction } from '../types';
 import { STANDARD_TEST_PRESETS } from '@/lib/testing/test-presets';
-import { TestAssertion } from '@/lib/testing/types';
+import { TestAssertion, TestCase } from '@/lib/testing/types';
 import { saveTestRun, listTestRuns, getTestRun } from '@/lib/db/test-runs';
-
-function buildHeaders(apiKey?: string): HeadersInit {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (apiKey) headers['X-UpFreq-Key'] = apiKey;
-  return headers;
-}
-
-// This action fetches a user-supplied serverUrl from UpFreq's own backend
-// (not the browser) — without this guard, a caller could point it at cloud
-// metadata endpoints, internal admin services, or anything else reachable
-// from our network, and get the response echoed back through the tool
-// result. Only http(s) to a resolved public IP is allowed; every address a
-// hostname resolves to is checked, not just the first, since a caller could
-// otherwise return a mix of public/private records.
-function isPrivateOrReservedIp(ip: string, family: number): boolean {
-  if (family === 4) {
-    const [a, b] = ip.split('.').map(Number);
-    if (a === 127) return true; // loopback
-    if (a === 10) return true; // RFC1918
-    if (a === 172 && b >= 16 && b <= 31) return true; // RFC1918
-    if (a === 192 && b === 168) return true; // RFC1918
-    if (a === 169 && b === 254) return true; // link-local / cloud metadata
-    if (a === 0) return true;
-    return false;
-  }
-  const lower = ip.toLowerCase();
-  if (lower === '::1') return true; // loopback
-  if (lower.startsWith('fe80:') || lower.startsWith('fe80::')) return true; // link-local
-  if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // unique local (fc00::/7)
-  if (lower.startsWith('::ffff:')) return isPrivateOrReservedIp(lower.replace('::ffff:', ''), 4);
-  return false;
-}
-
-async function assertPublicHttpUrl(rawUrl: string): Promise<URL> {
-  const url = new URL(rawUrl);
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error(`Unsupported protocol "${url.protocol}" — serverUrl must be http:// or https://.`);
-  }
-
-  const hostname = url.hostname;
-  if (hostname === 'localhost') {
-    throw new Error('serverUrl cannot be localhost — this action runs on UpFreq\'s backend, not your machine.');
-  }
-
-  const literalFamily = isIP(hostname);
-  const addresses = literalFamily
-    ? [{ address: hostname, family: literalFamily }]
-    : await dnsLookup(hostname, { all: true }).catch(() => {
-        throw new Error(`Could not resolve host "${hostname}".`);
-      });
-
-  for (const { address, family } of addresses) {
-    if (isPrivateOrReservedIp(address, family)) {
-      throw new Error(`serverUrl resolves to a private/internal address (${address}) — not reachable, and not allowed for security reasons.`);
-    }
-  }
-
-  return url;
-}
-
-async function checkServerHealth(serverUrl: string, apiKey?: string): Promise<void> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 6000);
-  try {
-    const res = await fetch(`${serverUrl}/health`, { method: 'GET', headers: buildHeaders(apiKey), signal: controller.signal });
-    if (!res.ok) throw new Error(`Server returned HTTP ${res.status}`);
-  } catch (err: any) {
-    if (err.name === 'AbortError') throw new Error('Connection to the Isaac Sim server timed out.');
-    throw new Error(err.message || 'Could not connect to the Isaac Sim server.');
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
+import { assertPublicHttpUrl, checkServerHealth, bridgePost } from './bridge-http';
 
 async function runSimTest(
   serverUrl: string,
   body: { robot_name: string; category: string; command_type: string; command_params: Record<string, unknown>; duration_sec: number; environment: string },
   apiKey?: string
 ): Promise<{ metrics?: Record<string, number>; logs?: string[] }> {
-  const res = await fetch(`${serverUrl}/api/v1/run-test`, { method: 'POST', headers: buildHeaders(apiKey), body: JSON.stringify(body) });
-  const data = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(data?.detail || data?.error || `Isaac Sim test run failed (HTTP ${res.status})`);
-  return data || {};
+  return bridgePost(serverUrl, '/api/v1/run-test', body, apiKey);
 }
 
 function evaluateAssertions(assertions: TestAssertion[], metrics: Record<string, number>) {
@@ -134,7 +57,23 @@ export const runTestCaseAction: AgentNativeAction = {
     projectId: z.string().optional(),
   }),
   async execute(input, context) {
-    const preset = STANDARD_TEST_PRESETS.find(p => p.id === input.testCaseId) || STANDARD_TEST_PRESETS[0];
+    let preset: TestCase | undefined = STANDARD_TEST_PRESETS.find(p => p.id === input.testCaseId);
+    if (!preset && context.userId) {
+      const { getCustomTestCase } = await import('@/lib/db/custom-test-cases');
+      preset = (await getCustomTestCase(context.userId, input.testCaseId)) || undefined;
+    }
+    if (!preset) {
+      // Previously fell back to STANDARD_TEST_PRESETS[0] here — silently
+      // running a different, unrelated test and reporting it as if it were
+      // the one requested. For a safety-testing tool that's actively
+      // dangerous, not just a UX rough edge — an unknown id must be a clear
+      // error, never a silent substitution.
+      return {
+        testCaseId: input.testCaseId,
+        status: 'error',
+        error: `No test case found with id "${input.testCaseId}" — checked both standard presets (list_test_presets) and your custom test cases (create_test_case). Not running a substitute test.`,
+      };
+    }
     const serverUrl = input.serverUrl.replace(/\/+$/, '');
     const startedAt = Date.now();
 
@@ -224,16 +163,21 @@ export const listTestPresetsAction: AgentNativeAction = {
   id: 'upfreq.testing.list_test_presets',
   namespace: 'upfreq.testing',
   name: 'list_test_presets',
-  description: 'Lists standard simulation test presets available for ROS 2 validation in Isaac Sim.',
+  description: 'Lists standard simulation test presets, plus your own saved custom test cases (from create_test_case) if authenticated.',
   defaultPolicy: 'ALLOWED',
   schema: z.object({
-    category: z.enum(['all', 'kinematics', 'navigation', 'safety', 'sensors', 'controllers']).default('all'),
+    category: z.enum(['all', 'kinematics', 'velocity_braking', 'collision_avoidance', 'incline_stability', 'payload_capacity', 'custom']).default('all'),
   }),
-  async execute(input) {
-    if (input.category === 'all') {
-      return { presets: STANDARD_TEST_PRESETS };
+  async execute(input, context) {
+    let custom: TestCase[] = [];
+    if (context.userId) {
+      const { listCustomTestCases } = await import('@/lib/db/custom-test-cases');
+      custom = await listCustomTestCases(context.userId);
     }
-    return { presets: STANDARD_TEST_PRESETS.filter(p => p.category === input.category) };
+
+    const all = [...STANDARD_TEST_PRESETS, ...custom];
+    const presets = input.category === 'all' ? all : all.filter(p => p.category === input.category);
+    return { presets };
   },
 };
 
@@ -273,39 +217,68 @@ export const getRunDiagnosticsAction: AgentNativeAction = {
   },
 };
 
+// assertionType -> metric name, kept consistent with the metric keys
+// STANDARD_TEST_PRESETS already uses (src/lib/testing/test-presets.ts) so a
+// custom test's assertion has a real chance of matching what a bridge
+// server actually reports in run-test's response, instead of inventing a
+// metric name nothing will ever populate.
+const ASSERTION_METRIC_MAP: Record<string, { metric: string; operator: TestAssertion['operator']; unit: string; label: string }> = {
+  min_clearance: { metric: 'min_clearance_m', operator: '>=', unit: 'm', label: 'Minimum Obstacle Clearance' },
+  max_time_to_goal: { metric: 'time_to_goal_s', operator: '<=', unit: 's', label: 'Time to Goal' },
+  zero_collisions: { metric: 'collision_count', operator: '==', unit: 'count', label: 'Collision Count' },
+  max_velocity: { metric: 'top_speed_ms', operator: '<=', unit: 'm/s', label: 'Peak Velocity' },
+};
+
 export const createTestCaseAction: AgentNativeAction = {
   id: 'upfreq.testing.create_test_case',
   namespace: 'upfreq.testing',
   name: 'create_test_case',
-  description: 'Creates a custom robotics simulation test specification with pass/fail assertion criteria.',
+  description:
+    'Creates and saves a custom robotics simulation test specification with pass/fail assertion criteria. ' +
+    'Once created, run it by passing this test case\'s id as testCaseId to run_test_case — same as a standard preset.',
   defaultPolicy: 'ALLOWED',
   schema: z.object({
     name: z.string().describe('Test case name, e.g. "Strict 0.5m Pallet Clearance Test"'),
     description: z.string().describe('Test objective'),
-    category: z.enum(['kinematics', 'navigation', 'safety', 'sensors', 'controllers']).default('safety'),
-    environment: z.enum(['grid', 'warehouse', 'hospital', 'outdoor_uneven', 'narrow_corridor']).default('warehouse'),
+    category: z.enum(['kinematics', 'velocity_braking', 'collision_avoidance', 'incline_stability', 'payload_capacity', 'custom']).default('custom'),
+    environment: z.enum(['grid', 'warehouse', 'turtlebot_world', 'hospital', 'bookstore', 'incline', 'incline_slope', 'rough_terrain', 'laboratory', 'empty']).default('warehouse'),
+    commandType: z.enum(['joint_sweep', 'velocity_step', 'emergency_stop', 'incline_drive', 'custom_script']).default('velocity_step'),
+    durationSec: z.number().positive().default(5),
     assertionType: z.enum(['min_clearance', 'max_time_to_goal', 'zero_collisions', 'max_velocity']).default('min_clearance'),
     thresholdValue: z.number().default(0.5),
   }),
-  async execute(input) {
-    const testCaseId = `custom_test_${Date.now()}`;
-    const testCase = {
-      id: testCaseId,
+  async execute(input, context) {
+    if (!context.userId) {
+      return { success: false, message: 'No authenticated user for this action.' };
+    }
+
+    const assertionSpec = ASSERTION_METRIC_MAP[input.assertionType];
+    const testCase: TestCase = {
+      id: `custom_test_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       name: input.name,
       description: input.description,
       category: input.category,
       environment: input.environment,
-      assertion: {
-        type: input.assertionType,
-        threshold: input.thresholdValue,
-      },
-      createdAt: new Date().toISOString(),
+      durationSec: input.durationSec,
+      commandType: input.commandType,
+      commandParams: {},
+      assertions: [{
+        id: 'a_custom',
+        label: assertionSpec.label,
+        metric: assertionSpec.metric,
+        operator: assertionSpec.operator,
+        targetValue: input.thresholdValue,
+        unit: assertionSpec.unit,
+      }],
     };
+
+    const { saveCustomTestCase } = await import('@/lib/db/custom-test-cases');
+    await saveCustomTestCase(context.userId, testCase);
 
     return {
       success: true,
       testCase,
-      message: `Test case "${input.name}" created and registered in UpFreq test runner.`,
+      message: `Test case "${input.name}" (${testCase.id}) saved — run it with run_test_case using this id.`,
     };
   },
 };

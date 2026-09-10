@@ -1,7 +1,11 @@
+import { bridgePost } from '@/lib/agent-native/actions/bridge-http';
+
 /**
  * Clean Scenario Reset Protocol
- * 
- * 3-Step Reset Sequence:
+ *
+ * 3-Step Reset Sequence, dispatched as one call to a real Isaac Sim bridge
+ * server's /api/v1/scenario/reset — the server is expected to perform all
+ * three steps and report which ones actually completed:
  * Step 1: Physics freeze & zero joint velocities
  * Step 2: Reset world poses of robot base and dynamic obstacle meshes
  * Step 3: Clear ROS 2 / Nav2 costmaps and reset local planner states
@@ -16,23 +20,23 @@ export interface CleanResetResult {
   logs: string[];
 }
 
+interface CleanResetServerResponse {
+  step1_physics_zeroed?: boolean;
+  step2_world_poses_reset?: boolean;
+  step3_costmaps_cleared?: boolean;
+  logs?: string[];
+}
+
 export async function executeCleanResetProtocol(
   robotName: string,
-  serverUrl?: string
+  serverUrl: string,
+  apiKey?: string
 ): Promise<CleanResetResult> {
-  const logs: string[] = [];
+  const result = await bridgePost<CleanResetServerResponse>(serverUrl, '/api/v1/scenario/reset', { robot_name: robotName }, apiKey);
 
-  // Step 1: Physics zeroing
-  logs.push(`[CleanReset Step 1] Freezing physics step & zeroing linear/angular velocities for ${robotName}`);
-  const step1 = true;
-
-  // Step 2: Pose restoration
-  logs.push(`[CleanReset Step 2] Restoring base_link pose to origin (0, 0, 0) and resetting dynamic obstacles`);
-  const step2 = true;
-
-  // Step 3: Nav2 costmap & lifecycle reset
-  logs.push(`[CleanReset Step 3] Dispatching /global_costmap/clear_entirely and resetting AMCL covariance`);
-  const step3 = true;
+  const step1 = result.step1_physics_zeroed ?? false;
+  const step2 = result.step2_world_poses_reset ?? false;
+  const step3 = result.step3_costmaps_cleared ?? false;
 
   return {
     success: step1 && step2 && step3,
@@ -40,6 +44,6 @@ export async function executeCleanResetProtocol(
     step2WorldPosesReset: step2,
     step3CostmapsCleared: step3,
     timestamp: new Date().toISOString(),
-    logs,
+    logs: result.logs || [],
   };
 }

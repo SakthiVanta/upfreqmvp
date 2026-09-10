@@ -64,6 +64,41 @@
       "when": 1789014105025,
       "tag": "0008_add_mcp_robots_workspaces_and_pending_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789032378179,
+      "tag": "0009_brief_northstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789035191357,
+      "tag": "0010_certain_frightful_four",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789036375049,
+      "tag": "0011_clean_epoch",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789037421136,
+      "tag": "0012_dear_the_anarchist",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789037915016,
+      "tag": "0013_calm_venus",
+      "breakpoints": true
     }
   ]
 }

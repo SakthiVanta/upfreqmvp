@@ -4,11 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Trash2, X, Loader2, Bot, AlertTriangle, Pencil, Terminal,
-  ChevronDown, ChevronUp, Cpu, Monitor, Clock,
+  ChevronDown, ChevronUp, Cpu, Monitor, Clock, Radio, Box,
 } from 'lucide-react';
 import { fetchProject, updateProject as apiUpdateProject, deleteProject as apiDeleteProject, UserProject } from '@/lib/user-projects';
 import { fetchRobots, McpRobot } from '@/lib/user-robots';
 import { fetchWorkspaces, WorkspaceRegistration } from '@/lib/user-workspaces';
+import { fetchBridgeEndpoints, registerBridgeEndpoint, foxgloveDeepLink, BridgeEndpoint } from '@/lib/user-bridges';
+import { fetchCadParts, CadPart } from '@/lib/user-cad-parts';
 import { CodebaseReview } from '@/components/dashboard/codebase-review';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toast';
@@ -24,6 +26,8 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<UserProject | null | undefined>(undefined);
   const [robots, setRobots] = useState<McpRobot[]>([]);
   const [workspaces, setWorkspaces] = useState<WorkspaceRegistration[]>([]);
+  const [bridges, setBridges] = useState<BridgeEndpoint[]>([]);
+  const [cadParts, setCadParts] = useState<CadPart[]>([]);
   const [showMcpModal, setShowMcpModal] = useState(false);
 
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -38,8 +42,14 @@ export default function ProjectDetailPage() {
     });
     fetchRobots(projectId).then(r => { if (!cancelled) setRobots(r); }).catch(() => {});
     fetchWorkspaces(projectId).then(w => { if (!cancelled) setWorkspaces(w); }).catch(() => {});
+    fetchBridgeEndpoints(projectId).then(b => { if (!cancelled) setBridges(b); }).catch(() => {});
+    fetchCadParts(projectId).then(c => { if (!cancelled) setCadParts(c); }).catch(() => {});
     return () => { cancelled = true; };
   }, [projectId]);
+
+  const refreshBridges = () => {
+    fetchBridgeEndpoints(projectId).then(setBridges).catch(() => {});
+  };
 
   const openEditModal = () => {
     if (!project) return;
@@ -237,6 +247,10 @@ export default function ProjectDetailPage() {
 
       {workspaces.length > 0 && <WorkspacesCard workspaces={workspaces} />}
 
+      <BridgeEndpointsCard bridges={bridges} projectId={projectId} onRegistered={refreshBridges} />
+
+      {cadParts.length > 0 && <CadPartsCard parts={cadParts} />}
+
       {showMcpModal && (
         <ClaudeMcpModal onClose={() => setShowMcpModal(false)} />
       )}
@@ -290,6 +304,192 @@ function McpRobotsCard({ robots }: { robots: McpRobot[] }) {
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+const BRIDGE_TYPE_LABEL: Record<string, string> = {
+  isaac_sim: 'Isaac Sim',
+  foxglove: 'Foxglove',
+  zenoh: 'Zenoh',
+};
+
+function BridgeEndpointsCard({ bridges, projectId, onRegistered }: { bridges: BridgeEndpoint[]; projectId: string; onRegistered: () => void }) {
+  const toast = useToast();
+  const [formOpen, setFormOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [machineId, setMachineId] = useState('');
+  const [endpointType, setEndpointType] = useState<'isaac_sim' | 'foxglove' | 'zenoh'>('foxglove');
+  const [url, setUrl] = useState('');
+  const [apiKey, setApiKey] = useState('');
+
+  const handleSubmit = async () => {
+    if (!machineId.trim() || !url.trim()) return;
+    setSaving(true);
+    try {
+      await registerBridgeEndpoint({ projectId, machineId: machineId.trim(), endpointType, url: url.trim(), apiKey: apiKey.trim() || undefined });
+      toast.success('Bridge endpoint registered.');
+      setFormOpen(false);
+      setMachineId('');
+      setUrl('');
+      setApiKey('');
+      onRegistered();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to register endpoint.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="minimal-card p-5 sm:p-6 space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h3 className="text-[11px] font-bold text-sand-500 uppercase tracking-wider flex items-center gap-1.5">
+          <Radio className="h-3.5 w-3.5" /> Bridge Endpoints ({bridges.length})
+        </h3>
+        <button
+          onClick={() => setFormOpen((v) => !v)}
+          className="text-[11px] font-bold text-emerald-primary hover:underline cursor-pointer"
+        >
+          {formOpen ? 'Cancel' : '+ Add Endpoint'}
+        </button>
+      </div>
+      <p className="text-[11px] text-sand-500 -mt-2">
+        Services running on your own GPU box — Isaac Sim bridge, Foxglove visualization, or a Zenoh router. UpFreq doesn't host or proxy these, it just remembers the URL so Claude (or you, here) doesn't have to re-type it every time. Ask Claude to register one for you over MCP, or add it directly below.
+      </p>
+
+      {formOpen && (
+        <div className="p-3.5 bg-sand-950 border border-sand-800 rounded-lg space-y-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sand-400 font-bold mb-1 text-[11px]">Type</label>
+              <select
+                value={endpointType}
+                onChange={(e) => setEndpointType(e.target.value as typeof endpointType)}
+                className="w-full px-3 py-2 border border-sand-700 bg-sand-900 text-sand-50 rounded-lg focus:outline-none focus:border-emerald-primary"
+              >
+                <option value="foxglove">Foxglove (visualization)</option>
+                <option value="isaac_sim">Isaac Sim (bridge server)</option>
+                <option value="zenoh">Zenoh (data streaming router)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sand-400 font-bold mb-1 text-[11px]">Machine label</label>
+              <input
+                type="text"
+                value={machineId}
+                onChange={(e) => setMachineId(e.target.value)}
+                placeholder="e.g. gpu-desktop, my-laptop"
+                className="w-full px-3 py-2 border border-sand-700 bg-sand-900 text-sand-50 rounded-lg focus:outline-none focus:border-emerald-primary"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sand-400 font-bold mb-1 text-[11px]">URL</label>
+            <input
+              type="text"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://your-tailscale-or-tunnel-address"
+              className="w-full px-3 py-2 border border-sand-700 bg-sand-900 text-sand-50 rounded-lg font-mono focus:outline-none focus:border-emerald-primary"
+            />
+            <p className="text-[10px] text-sand-500 mt-1">
+              Must be publicly reachable (a Tailscale/tunnel address) — not localhost, since UpFreq calls this from its own backend, not your browser.
+            </p>
+          </div>
+          <div>
+            <label className="block text-sand-400 font-bold mb-1 text-[11px]">API Key (optional)</label>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              className="w-full px-3 py-2 border border-sand-700 bg-sand-900 text-sand-50 rounded-lg font-mono focus:outline-none focus:border-emerald-primary"
+            />
+          </div>
+          <div className="flex justify-end">
+            <button
+              onClick={handleSubmit}
+              disabled={saving || !machineId.trim() || !url.trim()}
+              className="btn-emerald-primary py-2 px-4 text-xs font-bold cursor-pointer disabled:opacity-50"
+            >
+              {saving ? 'Saving...' : 'Save Endpoint'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {bridges.length > 0 && (
+        <div className="space-y-2">
+          {bridges.map((b) => (
+            <div key={b.id} className="flex items-center justify-between gap-3 p-3 bg-sand-950 border border-sand-800 rounded-lg text-xs">
+              <div className="min-w-0 space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="px-1.5 py-0.5 bg-sand-900 border border-sand-700 text-sand-300 font-bold text-[10px] rounded uppercase shrink-0">
+                    {BRIDGE_TYPE_LABEL[b.endpointType] || b.endpointType}
+                  </span>
+                  <span className="flex items-center gap-1.5 font-mono text-sand-300 truncate">
+                    <Cpu className="h-3 w-3 text-sand-500 shrink-0" />
+                    {b.machineId}
+                  </span>
+                </div>
+                <div className="font-mono text-sand-500 truncate" title={b.url}>{b.url}</div>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <a
+                  href={b.endpointType === 'foxglove' ? foxgloveDeepLink(b.url) : b.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-emerald-primary font-bold hover:underline whitespace-nowrap"
+                >
+                  {b.endpointType === 'foxglove' ? 'Open in Foxglove' : 'Open'}
+                </a>
+                <div className="flex items-center gap-1.5 text-sand-500 whitespace-nowrap">
+                  <Clock className="h-3 w-3" />
+                  {new Date(b.lastSeenAt).toLocaleDateString()}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CadPartsCard({ parts }: { parts: CadPart[] }) {
+  return (
+    <div className="minimal-card p-5 sm:p-6 space-y-4">
+      <h3 className="text-[11px] font-bold text-sand-500 uppercase tracking-wider flex items-center gap-1.5">
+        <Box className="h-3.5 w-3.5" /> CAD Parts ({parts.length})
+      </h3>
+      <p className="text-[11px] text-sand-500 -mt-2">
+        Parametric parts authored via Claude Code/Cursor over MCP — real OpenSCAD geometry, compiled to STL, with mass properties computed from the actual mesh.
+      </p>
+      <div className="space-y-2">
+        {parts.map((p) => (
+          <div key={p.id} className="flex items-center justify-between gap-3 p-3 bg-sand-950 border border-sand-800 rounded-lg text-xs">
+            <div className="min-w-0 space-y-0.5">
+              <span className="font-bold text-sand-100">{p.name}</span>
+              {p.massProperties && (
+                <div className="font-mono text-sand-500">
+                  {p.massProperties.massKg}kg · {(p.massProperties.volumeM3 * 1e6).toFixed(1)}cm³ ·
+                  {' '}{(p.massProperties.boundingBox.size.x * 100).toFixed(1)}×{(p.massProperties.boundingBox.size.y * 100).toFixed(1)}×{(p.massProperties.boundingBox.size.z * 100).toFixed(1)}cm
+                </div>
+              )}
+            </div>
+            {p.stlUrl && (
+              <a
+                href={p.stlUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-primary font-bold hover:underline whitespace-nowrap shrink-0"
+              >
+                Download STL
+              </a>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

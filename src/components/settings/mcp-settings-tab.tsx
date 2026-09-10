@@ -9,6 +9,8 @@ import {
   Layers,
   FolderOpen,
   FlaskConical,
+  Radio,
+  Box,
 } from 'lucide-react';
 import { McpConnectOptions } from '@/components/mcp/mcp-connect-options';
 
@@ -152,8 +154,24 @@ export function McpSettingsTab() {
               <li>• <span className="text-emerald-400">upfreq.robot.validate_urdf</span>: Verify kinematic tree &amp; physics</li>
               <li>• <span className="text-emerald-400">upfreq.robot.compile_simulation</span>: Preflight compile to OpenUSD</li>
               <li>• <span className="text-emerald-400">upfreq.robot.calculate_inertias</span>: Check Sylvester positive-definiteness</li>
+              <li>• <span className="text-emerald-400">upfreq.robot.validate_mesh_reference</span>: Validate a mesh format/scale/units</li>
               <li>• <span className="text-emerald-400">upfreq.robot.save_robot</span>: Save a robot to a project for good</li>
               <li>• <span className="text-emerald-400">upfreq.robot.list_robots</span>: List robots already saved</li>
+            </ul>
+          </div>
+
+          {/* CAD */}
+          <div className="p-3.5 bg-sand-950 border border-sand-800 space-y-1.5">
+            <div className="flex items-center gap-2 font-bold text-sand-100">
+              <Box className="h-3.5 w-3.5 text-emerald-primary" />
+              <span>Parametric CAD</span>
+            </div>
+            <ul className="space-y-1 font-mono text-[10px] text-sand-400">
+              <li>• <span className="text-emerald-400">upfreq.cad.generate_part</span>: Structured tree → real OpenSCAD source</li>
+              <li>• <span className="text-emerald-400">upfreq.cad.compile_part</span>: Real WASM compile → STL + mass properties</li>
+              <li>• <span className="text-emerald-400">upfreq.cad.save_part</span>: Save a part to a project for good</li>
+              <li>• <span className="text-emerald-400">upfreq.cad.list_parts</span>: List parts already saved</li>
+              <li>• <span className="text-emerald-400">upfreq.cad.attach_to_robot</span>: Add a part as a robot link</li>
             </ul>
           </div>
 
@@ -170,15 +188,33 @@ export function McpSettingsTab() {
             </ul>
           </div>
 
+          {/* Bridge Endpoints */}
+          <div className="p-3.5 bg-sand-950 border border-sand-800 space-y-1.5">
+            <div className="flex items-center gap-2 font-bold text-sand-100">
+              <Radio className="h-3.5 w-3.5 text-emerald-primary" />
+              <span>GPU Bridge Endpoints</span>
+            </div>
+            <ul className="space-y-1 font-mono text-[10px] text-sand-400">
+              <li>• <span className="text-emerald-400">upfreq.bridge.register_endpoint</span>: Remember your Isaac Sim/Foxglove/Zenoh URL</li>
+              <li>• <span className="text-emerald-400">upfreq.bridge.get_endpoint</span>: Look up a registered endpoint</li>
+              <li>• <span className="text-emerald-400">upfreq.bridge.list_endpoints</span>: List all registered endpoints</li>
+            </ul>
+          </div>
+
           {/* Environments */}
           <div className="p-3.5 bg-sand-950 border border-sand-800 space-y-1.5">
             <div className="flex items-center gap-2 font-bold text-sand-100">
               <Layers className="h-3.5 w-3.5 text-emerald-primary" />
-              <span>Simulation Environments</span>
+              <span>Simulation Control</span>
             </div>
             <ul className="space-y-1 font-mono text-[10px] text-sand-400">
+              <li>• <span className="text-emerald-400">upfreq.simulation.setup_isaac_sim</span>: Get the Chrome URL to view your live viewport</li>
               <li>• <span className="text-emerald-400">upfreq.environment.list_environments</span>: List open-source stages</li>
               <li>• <span className="text-emerald-400">upfreq.environment.select_environment</span>: Stage warehouse/hospital in Isaac</li>
+              <li>• <span className="text-emerald-400">upfreq.simulation.start_scenario</span>: Deploy &amp; start on a real Isaac Sim server</li>
+              <li>• <span className="text-emerald-400">upfreq.simulation.pause_simulation</span>: Pause/resume physics &amp; /clock</li>
+              <li>• <span className="text-emerald-400">upfreq.simulation.reset_stage</span>: Clean Scenario Reset (3-step)</li>
+              <li>• <span className="text-emerald-400">upfreq.simulation.get_stage_telemetry</span>: Live pose/joint state from Isaac Sim</li>
             </ul>
           </div>
 
@@ -186,13 +222,14 @@ export function McpSettingsTab() {
           <div className="p-3.5 bg-sand-950 border border-sand-800 space-y-1.5">
             <div className="flex items-center gap-2 font-bold text-sand-100">
               <FlaskConical className="h-3.5 w-3.5 text-emerald-primary" />
-              <span>Isaac Sim Testing &amp; Diagnostics</span>
+              <span>Isaac Sim Testing &amp; ROS 2</span>
             </div>
             <ul className="space-y-1 font-mono text-[10px] text-sand-400">
               <li>• <span className="text-emerald-400">upfreq.testing.run_test_case</span>: Run a test against your Isaac Sim server &amp; record it</li>
               <li>• <span className="text-emerald-400">upfreq.testing.list_runs</span>: See what's already been tested</li>
               <li>• <span className="text-emerald-400">upfreq.testing.create_test_case</span>: Define custom assertion tests</li>
               <li>• <span className="text-emerald-400">upfreq.ros.validate_time_config</span>: Audit /clock &amp; use_sim_time</li>
+              <li>• <span className="text-emerald-400">upfreq.ros.control_node</span>: Start/stop/restart/kill a ROS 2 node</li>
             </ul>
           </div>
         </div>

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { McpSettingsTab } from '@/components/settings/mcp-settings-tab';
+import { BillingSettingsTab } from '@/components/settings/billing-settings-tab';
 
 export default function SettingsPage() {
   return (
@@ -15,6 +16,8 @@ export default function SettingsPage() {
           Connect Claude Code, Cursor, or any MCP-compatible tool to your UpFreq account.
         </p>
       </div>
+
+      <BillingSettingsTab />
 
       <McpSettingsTab />
 

@@ -1,0 +1,2 @@
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "webapp_calls_this_month" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "webapp_calls_reset_at" timestamp DEFAULT now() NOT NULL;

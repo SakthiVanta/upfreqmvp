@@ -20,7 +20,7 @@ export interface ActionResult<T = any> {
 
 export interface AgentNativeAction<T = any, TOutput = any> {
   id: string; // e.g. 'upfreq.robot.validate_urdf'
-  namespace: 'upfreq.robot' | 'upfreq.project' | 'upfreq.code' | 'upfreq.simulation' | 'upfreq.ros' | 'upfreq.testing' | 'upfreq.workspace';
+  namespace: 'upfreq.robot' | 'upfreq.project' | 'upfreq.code' | 'upfreq.simulation' | 'upfreq.ros' | 'upfreq.testing' | 'upfreq.workspace' | 'upfreq.bridge' | 'upfreq.cad';
   name: string;
   description: string;
   schema: z.ZodType<T>;
