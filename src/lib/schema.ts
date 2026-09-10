@@ -9,6 +9,22 @@ export const users = pgTable('users', {
   githubId: varchar('github_id', { length: 255 }),
   avatarUrl: text('avatar_url'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+
+  // Billing — see src/lib/billing/. 'free' is metered (mcp-usage.ts caps
+  // MCP tool calls/month); 'pro' is unlimited until planExpiresAt passes,
+  // at which point it should be treated as expired back to free (no cron
+  // job enforces this yet — checked lazily wherever plan is read).
+  plan: varchar('plan', { length: 20 }).notNull().default('free'),
+  planExpiresAt: timestamp('plan_expires_at'),
+  mcpCallsThisMonth: integer('mcp_calls_this_month').notNull().default(0),
+  mcpCallsResetAt: timestamp('mcp_calls_reset_at').defaultNow().notNull(),
+  // Separate counter from mcpCalls* — the webapp's own /api/actions dispatch
+  // path (registry.execute with source:'api') used to bypass metering
+  // entirely, letting an authenticated browser session run unlimited
+  // compute-expensive actions (e.g. a ~20s CAD compile) with no cap at all.
+  webappCallsThisMonth: integer('webapp_calls_this_month').notNull().default(0),
+  webappCallsResetAt: timestamp('webapp_calls_reset_at').defaultNow().notNull(),
+  razorpayCustomerId: varchar('razorpay_customer_id', { length: 255 }),
 });
 
 // 2. Projects Table (Multi-Repo Containers)
@@ -120,6 +136,86 @@ export const workspaceRegistrations = pgTable('workspace_registrations', {
 }, (table) => [
   uniqueIndex('workspace_registrations_project_machine_idx').on(table.projectId, table.machineId),
 ]);
+
+// 5d. Bridge Endpoints — per-(project, machine, type) memory of a
+// user-hosted service URL (Isaac Sim bridge, Foxglove bridge, Zenoh router)
+// running on their own GPU box. UpFreq never hosts or proxies these — it
+// only stores the URL a "thing upfreq agent" (the user's own companion
+// process) exposes, so simulation/ROS actions and the webapp can look it up
+// by (project, machine) instead of the caller re-typing it every time.
+export const bridgeEndpoints = pgTable('bridge_endpoints', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  projectId: varchar('project_id', { length: 255 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  machineId: varchar('machine_id', { length: 255 }).notNull(),
+  endpointType: varchar('endpoint_type', { length: 50 }).notNull(), // 'isaac_sim' | 'foxglove' | 'zenoh'
+  url: text('url').notNull(),
+  apiKey: text('api_key'),
+  lastSeenAt: timestamp('last_seen_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('bridge_endpoints_project_machine_type_idx').on(table.projectId, table.machineId, table.endpointType),
+]);
+
+// 5e. CAD Parts — parametric parts authored via upfreq.cad.* (structured
+// primitive/boolean tree -> real OpenSCAD source -> real compiled STL via
+// openscad-wasm, with mass properties computed from the actual compiled
+// mesh, not estimated). scadSource/nodeTreeJson are small text/JSON and
+// live here directly; the compiled STL itself is a real binary blob and
+// lives in Vercel Blob storage (stlUrl points at it) — this is the "assets"
+// table's original S3/MinIO intent, actually wired up, without inventing
+// new infra beyond what BLOB_READ_WRITE_TOKEN already provisions.
+export const cadParts = pgTable('cad_parts', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  projectId: varchar('project_id', { length: 255 }).references(() => projects.id, { onDelete: 'set null' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  nodeTreeJson: jsonb('node_tree_json').notNull(),
+  scadSource: text('scad_source').notNull(),
+  stlUrl: text('stl_url'),
+  massPropertiesJson: jsonb('mass_properties_json'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// 5f. Payments — durable audit trail of every Razorpay order this app has
+// ever created, independent of users.plan (which is just the current derived
+// state). Never delete rows here even if a user's plan later changes —
+// this is the record of what was actually charged.
+export const payments = pgTable('payments', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  razorpayOrderId: varchar('razorpay_order_id', { length: 255 }).notNull(),
+  razorpayPaymentId: varchar('razorpay_payment_id', { length: 255 }),
+  amountInr: integer('amount_inr').notNull(),
+  planId: varchar('plan_id', { length: 20 }).notNull(),
+  status: varchar('status', { length: 20 }).notNull().default('created'), // created, paid, failed
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  paidAt: timestamp('paid_at'),
+}, (table) => [
+  uniqueIndex('payments_razorpay_order_idx').on(table.razorpayOrderId),
+]);
+
+// 5g. Custom Test Cases — user-authored test specs from
+// upfreq.testing.create_test_case. Previously this action returned a
+// spec that was never actually saved anywhere; run_test_case would then
+// silently run STANDARD_TEST_PRESETS[0] instead of the requested custom
+// test if the id didn't match a standard preset — a real safety-tool bug
+// (found in a fresh audit pass), not a stub left on purpose.
+export const customTestCases = pgTable('custom_test_cases', {
+  id: varchar('id', { length: 255 }).primaryKey(),
+  userId: varchar('user_id', { length: 255 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  category: varchar('category', { length: 50 }).notNull(),
+  environment: varchar('environment', { length: 50 }).notNull(),
+  durationSec: integer('duration_sec').notNull().default(5),
+  commandType: varchar('command_type', { length: 50 }).notNull(),
+  commandParamsJson: jsonb('command_params_json').notNull().default('{}'),
+  assertionsJson: jsonb('assertions_json').notNull().default('[]'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
 
 // 6. Versioned Robotics Asset Registry — canonical assets in S3/MinIO
 // with semantic contracts (upfreq_asset_contract.yaml).

@@ -85,15 +85,16 @@ export const compileAndDiagnoseAction: AgentNativeAction = {
   id: 'upfreq.code.compile_and_diagnose',
   namespace: 'upfreq.code',
   name: 'compile_and_diagnose',
-  description: 'Simulates/executes colcon build with ccache, extracts compiler diagnostics, and suggests automated auto-fix strategies.',
+  description:
+    'Parses real colcon/ccache build output into structured diagnostics (errors, warnings, suggested auto-fixes). ' +
+    'UpFreq has no ROS 2 toolchain or source tree of its own to compile against — run the actual build yourself (e.g. `colcon build --packages-select <name>`) and pass its real stdout/stderr as compilerOutput. This does not simulate or fabricate a build result.',
   defaultPolicy: 'ALLOWED',
   schema: z.object({
     packageName: z.string(),
-    mockCompilerOutput: z.string().optional(),
+    compilerOutput: z.string().describe('The real, complete stdout/stderr from actually running the build locally — not a summary or a guess at what it might say.'),
   }),
   async execute(input) {
-    const rawOutput = input.mockCompilerOutput || `Scanning dependencies of target ${input.packageName}\n[100%] Built target ${input.packageName}\nFinished <<< ${input.packageName} [1.42s]`;
-    return parseCompilerOutput(input.packageName, rawOutput);
+    return parseCompilerOutput(input.packageName, input.compilerOutput);
   },
 };
 

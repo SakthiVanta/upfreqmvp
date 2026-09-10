@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { AgentNativeAction } from '../types';
 import { OPEN_SOURCE_ENVIRONMENTS } from '@/lib/testing/open-source-environments';
+import { resolveBridgeServerUrl, bridgePost } from './bridge-http';
 
 export const listEnvironmentsAction: AgentNativeAction = {
   id: 'upfreq.environment.list_environments',
@@ -32,20 +33,32 @@ export const selectEnvironmentAction: AgentNativeAction = {
   id: 'upfreq.environment.select_environment',
   namespace: 'upfreq.simulation',
   name: 'select_environment',
-  description: 'Selects and deploys a simulation environment stage (e.g. warehouse, hospital, grid) in Isaac Sim.',
+  description: 'Selects and stages a simulation environment (e.g. warehouse, hospital, grid) on a real, running Isaac Sim server. Requires serverUrl (or a previously-registered bridge endpoint).',
   defaultPolicy: 'ALLOWED',
   schema: z.object({
     environmentKey: z.string().default('warehouse'),
     robotName: z.string().default('warehouse_amr'),
+    serverUrl: z.string().url().optional().describe('Base URL of the Isaac Sim bridge server. Omit if a bridge endpoint is already registered for this projectId/machineId.'),
+    apiKey: z.string().optional(),
+    projectId: z.string().optional(),
+    machineId: z.string().optional(),
   }),
-  async execute(input) {
+  async execute(input, context) {
     const meta = OPEN_SOURCE_ENVIRONMENTS.find(e => e.id === input.environmentKey) || OPEN_SOURCE_ENVIRONMENTS[0];
+    const { serverUrl, apiKey } = await resolveBridgeServerUrl(context, 'isaac_sim', input.serverUrl, input.projectId, input.machineId);
+
+    await bridgePost(serverUrl, '/api/v1/scenario/select-environment', {
+      environment_key: meta.id,
+      robot_name: input.robotName,
+    }, apiKey);
+
     return {
       success: true,
       environmentKey: meta.id,
       name: meta.name,
       dimensions: meta.dimensions,
       robotName: input.robotName,
+      serverUrl,
       message: `Environment "${meta.name}" selected and staged for ${input.robotName} in Isaac Sim.`,
     };
   },

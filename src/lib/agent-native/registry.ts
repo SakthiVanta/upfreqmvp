@@ -7,6 +7,8 @@ import { simulationActions } from './actions/simulation';
 import { rosActions } from './actions/ros';
 import { testingActions } from './actions/testing';
 import { workspaceActions } from './actions/workspace';
+import { bridgeActions } from './actions/bridge';
+import { cadActions } from './actions/cad';
 import { evaluateActionPolicy, createPolicyProposal } from './policy-engine';
 
 class ActionRegistry {
@@ -22,6 +24,8 @@ class ActionRegistry {
       ...rosActions,
       ...testingActions,
       ...workspaceActions,
+      ...bridgeActions,
+      ...cadActions,
     ]);
   }
 

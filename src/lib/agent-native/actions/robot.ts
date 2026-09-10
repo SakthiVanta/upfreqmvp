@@ -258,11 +258,70 @@ export const listRobotsAction: AgentNativeAction = {
   },
 };
 
+const SUPPORTED_MESH_EXTENSIONS = ['stl', 'dae', 'obj', 'fbx', 'usd', 'usda', 'usdc', 'glb', 'gltf'];
+
+export const validateMeshReferenceAction: AgentNativeAction = {
+  id: 'upfreq.robot.validate_mesh_reference',
+  namespace: 'upfreq.robot',
+  name: 'validate_mesh_reference',
+  description:
+    'Validates a mesh reference (as would go in a URDF <mesh filename="..."/> tag) before wiring it into a robot description — checks the format is one Isaac Sim/ROS 2 actually loads, the filename scheme will resolve on a real ROS 2 machine, scale is non-degenerate, and (if bounding box dimensions are given) flags the classic mm-vs-m unit mismatch from a CAD export. ' +
+    'This is pure validation logic, not a mesh parser — it does not open or import the mesh file itself.',
+  defaultPolicy: 'ALLOWED',
+  schema: z.object({
+    filename: z.string().describe('Mesh filename/path as it would appear in a URDF, e.g. "package://my_robot_description/meshes/base_link.stl"'),
+    scale: z.object({ x: z.number(), y: z.number(), z: z.number() }).default({ x: 1, y: 1, z: 1 }),
+    boundingBoxMeters: z.object({ x: z.number(), y: z.number(), z: z.number() }).optional()
+      .describe('The mesh\'s bounding box in meters, if already known from the CAD export — used to sanity-check units'),
+  }),
+  async execute(input) {
+    const issues: string[] = [];
+    const warnings: string[] = [];
+
+    const extMatch = input.filename.toLowerCase().match(/\.([a-z0-9]+)$/);
+    const ext = extMatch?.[1];
+    if (!ext || !SUPPORTED_MESH_EXTENSIONS.includes(ext)) {
+      issues.push(`Unsupported or missing mesh format "${ext || '(none)'}" — Isaac Sim/ROS 2 tooling expects one of: ${SUPPORTED_MESH_EXTENSIONS.join(', ')}.`);
+    }
+
+    const usesResolvableScheme = /^(package:\/\/|file:\/\/|https?:\/\/|\.\.?\/)/.test(input.filename) || !input.filename.includes(':');
+    if (!usesResolvableScheme) {
+      warnings.push(`"${input.filename}" doesn't look like a ROS 2-resolvable path (expected package://, file://, or a relative path) — a bare Windows-style absolute path won't resolve on the target machine.`);
+    }
+
+    if (input.scale.x <= 0 || input.scale.y <= 0 || input.scale.z <= 0) {
+      issues.push(`Non-positive scale (${input.scale.x}, ${input.scale.y}, ${input.scale.z}) — a mesh scale must be positive on every axis.`);
+    }
+
+    let likelyUnitMismatch = false;
+    if (input.boundingBoxMeters) {
+      const { x, y, z } = input.boundingBoxMeters;
+      const maxDim = Math.max(Math.abs(x), Math.abs(y), Math.abs(z));
+      if (maxDim > 50) {
+        likelyUnitMismatch = true;
+        warnings.push(`Bounding box max dimension is ${maxDim}m — implausibly large for a single robot part. This is the classic symptom of importing a mesh authored in millimeters without scaling by 0.001.`);
+      } else if (maxDim < 0.001 && maxDim > 0) {
+        likelyUnitMismatch = true;
+        warnings.push(`Bounding box max dimension is ${maxDim}m — implausibly small. Check whether the mesh was authored in meters as REP-103 requires.`);
+      }
+    }
+
+    return {
+      valid: issues.length === 0,
+      format: ext,
+      issues,
+      warnings,
+      likelyUnitMismatch,
+    };
+  },
+};
+
 export const robotActions = [
   createDescriptionAction,
   calculateInertiasAction,
   validateUrdfAction,
   compileSimulationAction,
+  validateMeshReferenceAction,
   saveRobotAction,
   listRobotsAction,
 ];

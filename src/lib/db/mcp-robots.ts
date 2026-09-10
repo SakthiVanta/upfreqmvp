@@ -89,6 +89,19 @@ export async function saveMcpRobot(userId: string, input: SaveMcpRobotInput): Pr
   return toRecord(row);
 }
 
+export async function updateMcpRobot(userId: string, id: string, urdfXacroXml: string): Promise<McpRobotRecord | null> {
+  const db = getDb();
+  if (!db) return null;
+
+  const [row] = await db
+    .update(schema.mcpRobots)
+    .set({ urdfXacroXml, updatedAt: new Date() })
+    .where(and(eq(schema.mcpRobots.id, id), eq(schema.mcpRobots.userId, userId)))
+    .returning();
+
+  return row ? toRecord(row) : null;
+}
+
 export async function listMcpRobots(userId: string, projectId?: string): Promise<McpRobotRecord[]> {
   const db = getDb();
   if (!db) return [];
