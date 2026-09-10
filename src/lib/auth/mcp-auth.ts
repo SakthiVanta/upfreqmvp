@@ -7,18 +7,27 @@ import { upsertUserFromWorkos } from './user-sync';
 // server for MCP — a distinct surface from the Management-API-based
 // getJwksUrl()/session-cookie flow the rest of the app uses (see
 // src/lib/auth/session.ts). Per WorkOS's own docs, MCP access tokens are
-// verified against `${WORKOS_AUTHKIT_DOMAIN}/oauth2/jwks`, with both
-// `issuer` and `audience` set to values registered in the WorkOS Dashboard.
+// verified against `${WORKOS_AUTHKIT_DOMAIN}/oauth2/jwks`.
 const AUTHKIT_DOMAIN = process.env.WORKOS_AUTHKIT_DOMAIN;
 const JWKS = AUTHKIT_DOMAIN ? createRemoteJWKSet(new URL(`${AUTHKIT_DOMAIN}/oauth2/jwks`)) : null;
+
+// AuthKit doesn't honor RFC 8707 resource indicators — it audiences every
+// access token to the environment's WorkOS Client ID (the same one used for
+// the browser session-login flow), not to a caller-supplied `resource` URL.
+// Confirmed by decoding a real DCR-issued MCP token: its `aud` claim was
+// WORKOS_CLIENT_ID, not mcpResourceUrl(). Checking audience against
+// mcpResourceUrl() (as an RFC 8707-compliant AS would expect) rejects every
+// real token AuthKit issues — verify against WORKOS_CLIENT_ID instead.
+const WORKOS_CLIENT_ID = process.env.WORKOS_CLIENT_ID;
 
 function appBaseUrl(): string {
   return (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '');
 }
 
-// The resource identifier this server presents as its MCP endpoint — must
-// exactly match whatever "resource" the user registered for this app in the
-// WorkOS Dashboard, since that's what WorkOS stamps into the `aud` claim.
+// The resource identifier this server presents as its MCP endpoint in the
+// RFC 9728 discovery document (see below) — purely descriptive metadata for
+// MCP clients. NOT what tokens are actually audienced to (see the
+// WORKOS_CLIENT_ID note above) — don't use this for audience verification.
 export function mcpResourceUrl(): string {
   return `${appBaseUrl()}/api/mcp`;
 }
@@ -49,7 +58,7 @@ export async function verifyMcpBearerToken(req: Request): Promise<{ userId: stri
   try {
     const { payload } = await jwtVerify(token, JWKS, {
       issuer: AUTHKIT_DOMAIN,
-      audience: mcpResourceUrl(),
+      audience: WORKOS_CLIENT_ID,
     });
     if (!payload.sub) return null;
     sub = payload.sub;
