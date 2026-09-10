@@ -110,6 +110,7 @@ export const getMcpConfigAction: AgentNativeAction = {
     const url = input.hostUrl.replace(/\/+$/, '');
     return {
       claudeCommand: `claude mcp add --transport http upfreq ${url}/api/mcp`,
+      codexCommand: `codex mcp add upfreq --url ${url}/api/mcp`,
       cursorConfig: {
         mcpServers: {
           upfreq: {
@@ -117,7 +118,7 @@ export const getMcpConfigAction: AgentNativeAction = {
           },
         },
       },
-      description: 'Connect Claude Code in your terminal to edit ROS 2 code locally while connecting to UpFreq for robot models and Isaac Sim testing.',
+      description: 'Connect Claude Code, OpenAI Codex CLI, or Cursor in your terminal to edit ROS 2 code locally while connecting to UpFreq for robot models and Isaac Sim testing.',
     };
   },
 };
