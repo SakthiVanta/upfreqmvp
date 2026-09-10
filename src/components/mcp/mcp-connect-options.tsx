@@ -52,7 +52,11 @@ const VARIANT_STYLES = {
   },
   modal: {
     wrapper: 'p-4 bg-sand-950 border border-sand-800 space-y-2.5',
-    snippetBox: 'p-3 bg-black border border-sand-800 font-mono text-[11px] text-sand-100 overflow-x-auto whitespace-pre-wrap select-all',
+    // bg-black is a literal black, outside this app's inverted sand-*
+    // scale (where sand-100 resolves to #000000, meant for text on a WHITE
+    // sand-950 background) — pairing it with any sand-* text token renders
+    // as black-on-black. Needs a real light color instead.
+    snippetBox: 'p-3 bg-black border border-sand-800 font-mono text-[11px] text-white overflow-x-auto whitespace-pre-wrap select-all',
     prefix: (i: number) => `Option ${String.fromCharCode(65 + i)}:`,
   },
 } as const;
