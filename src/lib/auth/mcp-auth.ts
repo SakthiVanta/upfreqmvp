@@ -53,7 +53,11 @@ export async function verifyMcpBearerToken(req: Request): Promise<{ userId: stri
     });
     if (!payload.sub) return null;
     sub = payload.sub;
-  } catch {
+  } catch (err: any) {
+    // Swallowing this silently makes a real audience/issuer mismatch
+    // indistinguishable from "no token sent" in the logs — log it so a
+    // rejected-on-reconnect MCP client is actually diagnosable.
+    console.error('[MCP AUTH] Bearer token rejected:', err?.code || err?.name, err?.message);
     return null;
   }
 
