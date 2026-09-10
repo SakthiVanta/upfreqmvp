@@ -4,9 +4,10 @@ import * as schema from '../schema';
 
 const connectionString = process.env.DATABASE_URL;
 
-// Auth is currently mocked (no real GitHub OAuth wired up yet — see
-// auth-context.tsx) so every session resolves to this one standing
-// identity. Swap for the real authenticated user's id once OAuth lands.
+// Real WorkOS AuthKit auth now exists (src/proxy.ts, src/lib/auth/session.ts)
+// — every request-scoped DB call should thread a real userId through instead
+// of this constant. Still used by local seed scripts (scripts/seed-fleet.ts,
+// scripts/seed-provider-models.ts) which run outside any session context.
 export const DEMO_USER_ID = 'usr_demo_ekumen';
 
 export function getDb() {

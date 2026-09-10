@@ -2,36 +2,40 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from '@/lib/auth-context';
-import { GithubIcon } from '@/components/ui/github-icon';
+import { usePathname } from 'next/navigation';
+import type { User as WorkosUser } from '@workos-inc/node';
+import { signOutAction } from '@/lib/auth/actions';
 import { useConfirm } from '@/components/ui/confirm-dialog';
 import { useToast } from '@/components/ui/toast';
 import {
-  LogOut, Menu, X, RefreshCw, Database, FolderOpen, Settings, Bot, FlaskConical
+  LogOut, Menu, X, RefreshCw, Database, FolderOpen, Settings, FlaskConical,
+  Layers, Terminal
 } from 'lucide-react';
+import { ClaudeMcpModal } from '@/components/mcp/claude-mcp-modal';
 
 const NAV_ITEMS = [
   { href: '/projects', label: 'Projects', icon: FolderOpen },
-  { href: '/robots', label: 'Robots', icon: Bot },
+  { href: '/assets', label: 'Asset Registry', icon: Layers },
   { href: '/testing', label: 'Simulation Tests', icon: FlaskConical },
 ];
 
-export function AppLayout({ children }: { children: React.ReactNode }) {
+export function AppLayout({ children, user }: { children: React.ReactNode; user: WorkosUser | null }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, isAuthenticated, logout } = useAuth();
   const confirm = useConfirm();
   const toast = useToast();
 
+  const displayName = user ? (user.firstName || user.email) : '';
+  const displayInitial = displayName.charAt(0).toUpperCase() || '?';
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isResettingDb, setIsResettingDb] = useState(false);
+  const [showMcpModal, setShowMcpModal] = useState(false);
 
   const handleResetDatabase = async () => {
     const ok = await confirm({
-      title: 'Reset Database',
-      message: 'Are you sure you want to reset the database and clear all workspace data to only the demo user? This cannot be undone.',
-      confirmLabel: 'Reset Database',
+      title: 'Reset Workspace',
+      message: 'Are you sure you want to clear all of your projects, robots, and designs? This only affects your own account and cannot be undone.',
+      confirmLabel: 'Reset My Workspace',
       danger: true,
     });
     if (!ok) return;
@@ -39,7 +43,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     setIsResettingDb(true);
     try {
       await fetch('/api/db/reset', { method: 'POST' });
-      toast.success('Database and workspace reset complete! Reinitialized with clean Demo User.');
+      toast.success('Your workspace has been reset.');
       window.location.href = '/projects';
     } catch (e) {
       toast.error('Workspace reset finished.');
@@ -50,7 +54,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   // If user is NOT logged in or is on the marketing home page without logging in, render clean container
-  if (!isAuthenticated || pathname === '/login') {
+  if (!user || pathname === '/login') {
     return <div className="w-full">{children}</div>;
   }
 
@@ -94,6 +98,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
+        {/* Claude Code MCP Gateway Quick Connect */}
+        <div className="p-3 border-t border-sand-800 bg-sand-950">
+          <button
+            onClick={() => setShowMcpModal(true)}
+            className="w-full py-2 px-3 bg-sand-900 hover:bg-sand-800 text-sand-50 border border-sand-700 font-bold text-xs flex items-center justify-between cursor-pointer transition-colors"
+            title="Connect Claude Code CLI or Cursor via MCP"
+          >
+            <div className="flex items-center gap-2">
+              <Terminal className="h-3.5 w-3.5 text-emerald-primary" />
+              <span>Claude Code MCP</span>
+            </div>
+            <span className="h-2 w-2 rounded-full bg-emerald-primary animate-pulse" title="MCP Active" />
+          </button>
+        </div>
+
         {/* User Profile & Logout Section */}
         <div className="p-3 border-t border-sand-800 bg-sand-950/60 shrink-0 space-y-2.5">
           {/* Reset DB — its own standalone action, separate from the
@@ -104,18 +123,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             className="w-full py-1.5 px-2 bg-sand-800 hover:bg-rose-950 hover:text-rose-300 text-sand-300 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all border border-sand-700 cursor-pointer disabled:opacity-60"
           >
             {isResettingDb ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5 text-rose-400" />}
-            <span>Reset DB (Demo User)</span>
+            <span>Reset My Workspace</span>
           </button>
 
           {/* Profile, then Settings, then Sign Out — one grouped row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 overflow-hidden">
               <div className="h-7 w-7 bg-sand-800 border border-sand-700 flex items-center justify-center font-bold text-xs text-emerald-400 shrink-0">
-                {user?.username?.charAt(0).toUpperCase()}
+                {displayInitial}
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="text-xs font-bold text-sand-100 truncate">{user?.username}</span>
-                <span className="text-[10px] text-sand-500 truncate capitalize">{user?.provider} Auth</span>
+                <span className="text-xs font-bold text-sand-100 truncate">{displayName}</span>
+                <span className="text-[10px] text-sand-500 truncate">{user.email}</span>
               </div>
             </div>
 
@@ -130,7 +149,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <Settings className="h-4 w-4" />
               </Link>
               <button
-                onClick={() => { logout(); router.push('/'); }}
+                onClick={() => signOutAction()}
                 className="p-1.5 text-sand-500 hover:text-red-400 hover:bg-sand-800 transition-colors cursor-pointer"
                 title="Sign Out"
               >
@@ -161,11 +180,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               signed in as" was only visible on desktop. */}
           <div className="flex items-center gap-2.5 p-4 border-b border-sand-800 bg-sand-925 shrink-0">
             <div className="h-9 w-9 bg-sand-800 border border-sand-700 flex items-center justify-center font-bold text-sm text-emerald-400 shrink-0">
-              {user?.username?.charAt(0).toUpperCase()}
+              {displayInitial}
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-sm font-bold text-sand-100 truncate">{user?.username}</span>
-              <span className="text-[11px] text-sand-500 truncate capitalize">{user?.provider} Auth</span>
+              <span className="text-sm font-bold text-sand-100 truncate">{displayName}</span>
+              <span className="text-[11px] text-sand-500 truncate">{user.email}</span>
             </div>
           </div>
 
@@ -209,11 +228,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 className="w-full py-3 bg-rose-950 text-rose-200 border border-rose-800 font-bold flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
               >
                 {isResettingDb ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
-                Reset DB to Demo User
+                Reset My Workspace
               </button>
 
               <button
-                onClick={() => { logout(); router.push('/'); }}
+                onClick={() => signOutAction()}
                 className="w-full py-3 bg-sand-800 text-sand-300 font-bold flex items-center justify-center gap-2 cursor-pointer"
               >
                 <LogOut className="h-4 w-4" />
@@ -240,7 +259,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <span className="font-display font-bold text-sm text-sand-50">UpFreq</span>
 
           <button
-            onClick={() => { logout(); router.push('/'); }}
+            onClick={() => signOutAction()}
             className="p-2 text-sand-400 hover:text-red-400 transition-colors cursor-pointer"
             title="Sign Out"
           >
@@ -253,6 +272,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Claude Code & Cursor MCP Connection Modal */}
+      {showMcpModal && (
+        <ClaudeMcpModal onClose={() => setShowMcpModal(false)} />
+      )}
 
     </div>
   );

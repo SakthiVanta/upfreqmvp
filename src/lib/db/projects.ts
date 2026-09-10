@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray } from 'drizzle-orm';
-import { getDb, DEMO_USER_ID } from './client';
+import { getDb } from './client';
 import * as schema from '../schema';
 import { RobotProfile } from '../robot-profile';
 import { saveRobotProfile } from './robots';
@@ -46,14 +46,22 @@ type Db = NonNullable<ReturnType<typeof getDb>>;
 // a project's primary repo — so in practice there's at most one. Sorting
 // ascending by analyzedAt and letting later rows overwrite earlier ones in
 // the map keeps this correct even if that ever changes.
-async function latestAuditedProfileByProject(db: Db, projectIds: string[]): Promise<Map<string, RobotProfile>> {
+//
+// Filtered by userId as well as projectId — defense in depth. projectIds is
+// already caller-owned by the time this runs (callers only ever pass ids
+// from listProjects/getProject, both userId-scoped), but a robots row is
+// only ever a real audit of that project if the same user owns both rows;
+// without this filter a robots row planted against someone else's projectId
+// (see updateProject's now-ownership-checked auditedRobotProfile branch)
+// would otherwise render on the victim's project page.
+async function latestAuditedProfileByProject(db: Db, userId: string, projectIds: string[]): Promise<Map<string, RobotProfile>> {
   const map = new Map<string, RobotProfile>();
   if (projectIds.length === 0) return map;
 
   const rows = await db
     .select()
     .from(schema.robots)
-    .where(inArray(schema.robots.projectId, projectIds))
+    .where(and(inArray(schema.robots.projectId, projectIds), eq(schema.robots.userId, userId)))
     .orderBy(schema.robots.analyzedAt);
 
   for (const row of rows) {
@@ -77,14 +85,14 @@ function toRecord(
   };
 }
 
-export async function listProjects(): Promise<ProjectRecord[]> {
+export async function listProjects(userId: string): Promise<ProjectRecord[]> {
   const db = getDb();
   if (!db) return [];
 
   const projectRows = await db
     .select()
     .from(schema.projects)
-    .where(eq(schema.projects.userId, DEMO_USER_ID))
+    .where(eq(schema.projects.userId, userId))
     .orderBy(desc(schema.projects.createdAt));
 
   if (projectRows.length === 0) return [];
@@ -92,31 +100,31 @@ export async function listProjects(): Promise<ProjectRecord[]> {
   const projectIds = projectRows.map(p => p.id);
   const [repoRows, profileMap] = await Promise.all([
     db.select().from(schema.projectRepositories).where(inArray(schema.projectRepositories.projectId, projectIds)),
-    latestAuditedProfileByProject(db, projectIds),
+    latestAuditedProfileByProject(db, userId, projectIds),
   ]);
 
   return projectRows.map(p => toRecord(p, repoRows, profileMap.get(p.id)));
 }
 
-export async function getProject(projectId: string): Promise<ProjectRecord | null> {
+export async function getProject(userId: string, projectId: string): Promise<ProjectRecord | null> {
   const db = getDb();
   if (!db) return null;
 
   const [p] = await db
     .select()
     .from(schema.projects)
-    .where(and(eq(schema.projects.id, projectId), eq(schema.projects.userId, DEMO_USER_ID)));
+    .where(and(eq(schema.projects.id, projectId), eq(schema.projects.userId, userId)));
   if (!p) return null;
 
   const [repoRows, profileMap] = await Promise.all([
     db.select().from(schema.projectRepositories).where(eq(schema.projectRepositories.projectId, projectId)),
-    latestAuditedProfileByProject(db, [projectId]),
+    latestAuditedProfileByProject(db, userId, [projectId]),
   ]);
 
   return toRecord(p, repoRows, profileMap.get(projectId));
 }
 
-export async function createProject(input: { name: string; description?: string; repos?: ProjectRepoInput[] }): Promise<ProjectRecord> {
+export async function createProject(userId: string, input: { name: string; description?: string; repos?: ProjectRepoInput[] }): Promise<ProjectRecord> {
   const db = getDb();
   if (!db) throw new Error('DATABASE_URL is not configured');
 
@@ -124,7 +132,7 @@ export async function createProject(input: { name: string; description?: string;
   const name = input.name.trim();
   const description = input.description?.trim() || '';
 
-  await db.insert(schema.projects).values({ id, userId: DEMO_USER_ID, name, description });
+  await db.insert(schema.projects).values({ id, userId, name, description });
 
   const repos: ProjectRepoRecord[] = (input.repos || []).map((r, idx) => ({
     id: `repo_${Date.now()}_${idx}`,
@@ -147,9 +155,21 @@ export async function createProject(input: { name: string; description?: string;
   return { id, name, description, repos, isAudited: false };
 }
 
-export async function updateProject(projectId: string, input: ProjectUpdateInput): Promise<ProjectRecord | null> {
+export async function updateProject(userId: string, projectId: string, input: ProjectUpdateInput): Promise<ProjectRecord | null> {
   const db = getDb();
   if (!db) return null;
+
+  // Ownership check up front, before any write below. addRepo/removeRepoId/
+  // auditedRobotProfile all previously scoped their writes by projectId
+  // alone (no userId), so any authenticated caller could mutate another
+  // user's project by passing its id — the final getProject(userId,
+  // projectId) call masked this by still returning null/404, but the write
+  // had already landed. One ownership check here closes all three at once.
+  const [owned] = await db
+    .select({ id: schema.projects.id })
+    .from(schema.projects)
+    .where(and(eq(schema.projects.id, projectId), eq(schema.projects.userId, userId)));
+  if (!owned) return null;
 
   // Unlike createProject (where the repo insert's FK genuinely can't
   // resolve until the project row it points at has committed), every
@@ -167,7 +187,7 @@ export async function updateProject(projectId: string, input: ProjectUpdateInput
           ...(input.description !== undefined ? { description: input.description.trim() } : {}),
           updatedAt: new Date(),
         })
-        .where(and(eq(schema.projects.id, projectId), eq(schema.projects.userId, DEMO_USER_ID)))
+        .where(and(eq(schema.projects.id, projectId), eq(schema.projects.userId, userId)))
     );
   }
 
@@ -191,22 +211,22 @@ export async function updateProject(projectId: string, input: ProjectUpdateInput
   }
 
   if (input.auditedRobotProfile) {
-    writes.push(saveRobotProfile(input.auditedRobotProfile, projectId));
+    writes.push(saveRobotProfile(userId, input.auditedRobotProfile, projectId));
   }
 
   if (writes.length > 0) await Promise.all(writes);
 
-  return getProject(projectId);
+  return getProject(userId, projectId);
 }
 
 // Repos and the project row itself cascade-delete at the schema level
 // (project_repositories.project_id → cascade); a project's past robot
 // audits are kept, just unlinked (robots.project_id → set null), so audit
 // history survives deleting the project it was run under.
-export async function deleteProject(projectId: string): Promise<void> {
+export async function deleteProject(userId: string, projectId: string): Promise<void> {
   const db = getDb();
   if (!db) return;
   await db
     .delete(schema.projects)
-    .where(and(eq(schema.projects.id, projectId), eq(schema.projects.userId, DEMO_USER_ID)));
+    .where(and(eq(schema.projects.id, projectId), eq(schema.projects.userId, userId)));
 }

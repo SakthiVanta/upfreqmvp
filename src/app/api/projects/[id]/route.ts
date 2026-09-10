@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getProject, updateProject, deleteProject } from '@/lib/db/projects';
+import { getSessionUserId, UnauthorizedError } from '@/lib/auth/session';
 
 export const runtime = 'nodejs';
 
@@ -7,21 +8,24 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: RouteContext) {
   try {
+    const userId = await getSessionUserId();
     const { id } = await params;
-    const project = await getProject(id);
+    const project = await getProject(userId, id);
     if (!project) return Response.json({ error: 'Project not found' }, { status: 404 });
     return Response.json(project);
   } catch (err: any) {
+    if (err instanceof UnauthorizedError) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     return Response.json({ error: err.message }, { status: 500 });
   }
 }
 
 export async function PATCH(req: NextRequest, { params }: RouteContext) {
   try {
+    const userId = await getSessionUserId();
     const { id } = await params;
     const body = await req.json();
 
-    const project = await updateProject(id, {
+    const project = await updateProject(userId, id, {
       name: typeof body.name === 'string' ? body.name : undefined,
       description: typeof body.description === 'string' ? body.description : undefined,
       addRepo: body.addRepo && typeof body.addRepo.url === 'string'
@@ -34,16 +38,19 @@ export async function PATCH(req: NextRequest, { params }: RouteContext) {
     if (!project) return Response.json({ error: 'Project not found' }, { status: 404 });
     return Response.json(project);
   } catch (err: any) {
+    if (err instanceof UnauthorizedError) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     return Response.json({ error: err.message }, { status: 500 });
   }
 }
 
 export async function DELETE(_req: NextRequest, { params }: RouteContext) {
   try {
+    const userId = await getSessionUserId();
     const { id } = await params;
-    await deleteProject(id);
+    await deleteProject(userId, id);
     return Response.json({ success: true });
   } catch (err: any) {
+    if (err instanceof UnauthorizedError) return Response.json({ error: 'Unauthorized' }, { status: 401 });
     return Response.json({ error: err.message }, { status: 500 });
   }
 }

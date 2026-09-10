@@ -9,9 +9,13 @@ export type TestCategory =
 export type SimEnvironmentPreset =
   | 'grid'
   | 'warehouse'
-  | 'laboratory'
+  | 'turtlebot_world'
+  | 'hospital'
+  | 'bookstore'
+  | 'incline'
   | 'incline_slope'
   | 'rough_terrain'
+  | 'laboratory'
   | 'empty';
 
 export interface TestAssertion {
