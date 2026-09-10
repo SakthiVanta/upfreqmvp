@@ -250,7 +250,10 @@ validation:
               </button>
             </div>
 
-            <div className="p-4 bg-black border border-sand-800 font-mono text-[11px] text-sand-200 max-h-[60vh] overflow-y-auto whitespace-pre-wrap">
+            {/* text-sand-200 resolves to ~85%-opaque black in this app's
+                inverted palette (meant for a white bg) — on a literal
+                bg-black that's nearly invisible. Needs a real light color. */}
+            <div className="p-4 bg-black border border-sand-800 font-mono text-[11px] text-white max-h-[60vh] overflow-y-auto whitespace-pre-wrap">
               {JSON.stringify(selectedAsset.contract, null, 2)}
             </div>
           </div>
